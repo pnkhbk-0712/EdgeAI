@@ -21,10 +21,20 @@ repo, in the user's home directory, same as SSH keys).
 - **100** XML annotation files (one per `MVI_#####` sequence — this is UA-DETRAC's native
   per-sequence annotation format, covering vehicle bounding boxes + attributes like
   occlusion/truncation across the sequence's frames)
-- Downloaded to the local Kaggle cache: `~/.cache/kagglehub/datasets/bratjay/ua-detrac-orig/versions/2`
-  (outside the git repo entirely — nothing to gitignore, but also nothing that travels with
-  `git clone`; each teammate who needs it re-runs the same `kagglehub.dataset_download(...)`
-  call locally)
+- Downloaded to `D:\DOANMINHHIEU\STUDIES\Ky9\01_Ai\.cache\kagglehub\datasets\bratjay\ua-detrac-orig\versions\2`
+  — **not** the C: drive default. kagglehub's default cache is `~/.cache/kagglehub`, which on
+  this machine resolves under `C:\Users\ADMIN\` — moved off C: after the fact and now pinned
+  via the `KAGGLEHUB_CACHE` environment variable (see below) so it never lands there again.
+  Outside the git repo entirely either way — nothing to gitignore, but also nothing that
+  travels with `git clone`; each teammate who needs it re-runs the download locally.
+
+  ```bash
+  export KAGGLEHUB_CACHE="D:/DOANMINHHIEU/STUDIES/Ky9/01_Ai/.cache/kagglehub"
+  ```
+
+  Also: the Kaggle API token is passed as the `KAGGLE_API_TOKEN` environment variable per
+  command rather than written to `~/.kaggle/access_token` — avoids a credential file on disk
+  at all, not just avoids it being on C:.
 
 ## What's still open
 
