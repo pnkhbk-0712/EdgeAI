@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+*.pt
+data/samples/*_annotated.mp4
+data/samples/events.jsonl
+.venv/
