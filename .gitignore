@@ -1,6 +1,9 @@
 __pycache__/
 *.pyc
 *.pt
+*.onnx
 data/samples/*_annotated.mp4
+data/samples/synthetic_parked_violation.mp4
 data/samples/events.jsonl
+models/smoketest/
 .venv/

@@ -41,6 +41,33 @@ All 5 passed.
 stays put for 2+ seconds in the zone, to see a true-positive fire end-to-end. This is exactly
 what Hieu's Day 1-2 pilot-site filming is for.
 
-**Not yet done:** custom dataset (UA-DETRAC requires registration at
-http://detrac-db.rit.albany.edu/ — someone needs to request access), fine-tuning, quantization,
-edge-device deployment. Baseline above uses stock pretrained weights only.
+**Not yet done (at time of first entry):** custom dataset, fine-tuning, quantization, edge-device
+deployment.
+
+---
+
+## 2026-09-14 (later same day) — Full pipeline run: synthetic violation, export, quantization, training smoke-test
+
+See `docs/IMPLEMENTATION_REPORT.md` for the full write-up. Summary of what changed since the
+entry above:
+
+- Checked a second real video (`person-bicycle-car-detection.mp4`, 647 frames) — same finding,
+  no genuinely parked vehicle, longest track is a 53-frame diagonal drive-through.
+- Built `synthetic_parked_violation.mp4` (real approach footage + held-static frame) and ran the
+  **actual pipeline** (not just the unit test) against it: violation correctly fired at frame 29
+  (2.3s), confirming the end-to-end system, not just the isolated logic, works on a true
+  positive.
+- Exported `yolov8n.pt` -> ONNX: 12.85 MB, 9.6s. Real full-video FPS: **16.5 (PyTorch) -> 29.0
+  (ONNX)**, +76%.
+- INT8 dynamic-quantized the ONNX model: 12.85 MB -> **3.5 MB** (-72.8%), but per-frame latency
+  got *worse* (31ms fp32 vs 276ms INT8, single-frame ONNX Runtime timing) — a real, reportable
+  negative result, not swept under the rug. Likely cause: dynamic quantization overhead without
+  INT8 hardware acceleration on this generic x86 CPU; needs re-testing on the actual
+  Jetson/Pi target.
+- Ran a 3-epoch training smoke-test on Ultralytics' built-in `coco8` (8 generic images, not
+  vehicle data) to prove `model.train(...)` runs cleanly end-to-end here: 13.4s, mAP50=0.888 on
+  the toy set. Proves the training *pipeline*, not model quality — real vehicle data is still
+  needed for a meaningful model.
+
+**Still blocked on the team, not on code:** UA-DETRAC registration, pilot-site filming, and any
+physical edge hardware (Raspberry Pi / Jetson) to deploy to or benchmark on.
