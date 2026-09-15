@@ -57,3 +57,22 @@ thời gian chung. Nếu muốn tách riêng, ghi rõ ở đây: _______________
 **Sau khi điền xong**, gửi lại câu trả lời câu 1–4 để mình chỉnh `zone.py` cho khớp (nếu có gì
 đổi so với mặc định hiện tại) — còn nếu giữ nguyên mặc định, coi như task này xong mà không cần
 sửa code gì cả.
+
+---
+
+## ĐÃ CHỐT (Hieu, 2026-09-15) — đã sửa code khớp với các câu trả lời này
+
+1. Giữ nguyên tâm bbox — **không đổi code**.
+2. Đổi ngưỡng dwell **2s → 60 giây**. Đã sửa `DWELL_SECONDS` trong `demo.py` và
+   `demo_synthetic.py`, chạy lại thật và xác nhận trigger đúng ở giây 60.3.
+3. Chưa khảo sát site nên chưa biết giờ/ngày cụ thể → tạm để `active_hours=None`,
+   `active_days=None` (cấm mọi lúc, mọi ngày) trong `demo.py`. **Cần cập nhật 2 giá trị này
+   sau khi có thông tin biển báo thật từ site.**
+4. Che khuất một phần vẫn tính vi phạm nếu model vẫn detect được — không cần sửa gì (đã là
+   hành vi mặc định). Riêng trường hợp "dừng đèn đỏ cạnh vùng cấm" — **code không tự phân biệt
+   được** với đỗ xe thật nếu đèn đỏ lâu hơn 60 giây. Cách xử lý thực tế: **vẽ vùng cấm (polygon)
+   sát vào đúng phần vỉa hè/lề đường cấm đỗ, không lấn vào làn xe chạy** — đây là việc của người
+   vẽ zone lúc lắp đặt thật (Hoàng), không phải lỗi code cần fix. Đã ghi rõ trong
+   `src/zone.py` và `docs/RUNLOG.md`.
+5. Class cần label: car, motorcycle, bus, truck, sign_normal, sign_odd, sign_even — khớp với
+   việc Hùng đang làm (gắn nhãn biển báo).

@@ -24,7 +24,9 @@ VIDEO_OUT = ROOT / "data" / "samples" / "synthetic_parked_violation_annotated.mp
 
 VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 ZONE_POLYGON = [(270, 0), (500, 0), (500, 230), (270, 230)]  # covers the held car's position
-DWELL_SECONDS = 2.0
+# Matches demo.py's real threshold (docs/ZONE_LABEL_DEFINITIONS.md Q2: 2s -> 60s).
+# The clip's held portion must be regenerated longer than this -- see make_synthetic_clip.py.
+DWELL_SECONDS = 60.0
 
 
 def main():

@@ -28,7 +28,15 @@ VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 # (The open middle aisle was tried first -- vehicles only drive through it,
 # never stop, so it correctly produces zero violations; see docs/RUNLOG.md.)
 ZONE_POLYGON = [(60, 0), (280, 0), (280, 270), (60, 270)]
-DWELL_SECONDS = 2.0
+
+# Answers from docs/ZONE_LABEL_DEFINITIONS.md (Hieu, 2026-09-15):
+# Q2 -- dwell threshold raised from 2s to 60s (a real "parked", not a rolling stop).
+DWELL_SECONDS = 60.0
+# Q3 -- pilot site not surveyed yet, so the sign's actual hours/day-parity are
+# unknown. None/None means "restricted at all times/days" until real sign data
+# comes back from filming -- update these two once that happens.
+ZONE_ACTIVE_HOURS = None   # e.g. (6, 21) once known
+ZONE_ACTIVE_DAYS = None    # "odd" | "even" once known
 
 
 def frame_timestamp(frame_idx, fps):
@@ -47,7 +55,8 @@ def main():
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     dwell_frames = max(1, int(round(DWELL_SECONDS * fps)))
 
-    zone = RestrictedZone(ZONE_POLYGON, dwell_frames=dwell_frames)
+    zone = RestrictedZone(ZONE_POLYGON, dwell_frames=dwell_frames,
+                          active_hours=ZONE_ACTIVE_HOURS, active_days=ZONE_ACTIVE_DAYS)
     model = YOLO("yolov8n.pt")
 
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")

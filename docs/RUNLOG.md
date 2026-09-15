@@ -69,5 +69,31 @@ entry above:
   the toy set. Proves the training *pipeline*, not model quality — real vehicle data is still
   needed for a meaningful model.
 
-**Still blocked on the team, not on code:** UA-DETRAC registration, pilot-site filming, and any
-physical edge hardware (Raspberry Pi / Jetson) to deploy to or benchmark on.
+**Still blocked on the team, not on code:** pilot-site filming, and any physical edge hardware
+(Raspberry Pi / Jetson) to deploy to or benchmark on. (UA-DETRAC registration is no longer
+blocked -- see docs/UA_DETRAC_DOWNLOAD.md.)
+
+---
+
+## 2026-09-15 — Zone/dwell answers locked in (Hieu), re-verified end-to-end
+
+Hieu filled out `docs/ZONE_LABEL_DEFINITIONS.md`. Real changes made to match:
+
+- **Dwell threshold raised 2s -> 60s** (`DWELL_SECONDS` in `demo.py` and `demo_synthetic.py`).
+  A rolling 2-second stop was too easy to confuse with normal traffic; 60s is a real "parked."
+- **Zone schedule support added** to `src/zone.py` (`active_hours`, `active_days`) per the
+  Design Note, wired into `demo.py` — currently `None`/`None` (restricted at all times/days)
+  since the pilot site hasn't been surveyed yet; update once it is.
+- Regenerated the synthetic test clip with a 65s held segment (`make_synthetic_clip.py`,
+  new script) and re-ran `demo_synthetic.py` end-to-end: **violation correctly fired at
+  frame 754 (60.3s)** — confirms the real pipeline still works at the new threshold, not
+  just the unit tests.
+- Added 3 new unit tests (`tests/test_zone.py`, now 8/8 passing) covering the schedule:
+  outside active hours never violates, correct hours/day-parity still violates, wrong day
+  parity never violates.
+- **Known unresolved limitation, documented not silently accepted:** Hieu specified a car
+  stopped at a red light beside the zone should NOT count as a violation, but the dwell-time
+  rule cannot distinguish that from real parking on its own — a long red-light cycle can
+  exceed 60s too. The real mitigation is zone-drawing discipline (keep the polygon tight to
+  the restricted curb, off the traffic lane), not a code fix. Flagged in `zone.py`'s docstring
+  and here for Hoang's attention when he draws the real zone at deployment.
