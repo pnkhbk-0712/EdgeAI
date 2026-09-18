@@ -8,3 +8,4 @@ data/samples/events.jsonl
 models/smoketest/
 .venv/
 signs_roboflow/
+data/ua_detrac_yolo/

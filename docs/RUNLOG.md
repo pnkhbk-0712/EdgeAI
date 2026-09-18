@@ -97,3 +97,24 @@ Hieu filled out `docs/ZONE_LABEL_DEFINITIONS.md`. Real changes made to match:
   exceed 60s too. The real mitigation is zone-drawing discipline (keep the polygon tight to
   the restricted curb, off the traffic lane), not a code fix. Flagged in `zone.py`'s docstring
   and here for Hoang's attention when he draws the real zone at deployment.
+
+---
+
+## 2026-09-18 — UA-DETRAC converted to YOLO format (Hieu's Build-phase head start)
+
+Wrote and ran `src/convert_ua_detrac.py` for real against the actual downloaded XML files
+(structure confirmed by inspection first, not assumed). Real results:
+
+- **8,232 train images / 5,625 val images**, sampled 1-in-10 frames per sequence (not all
+  140,131 -- consecutive frames are near-duplicates; raise `STRIDE` in the script for more)
+- **128,401 total boxes** across car/bus/truck (van mapped to truck); motorcycle reserved as
+  class id 1 with 0 examples -- confirmed UA-DETRAC has no motorcycle class, matches the
+  report's own known limitation
+- Visually verified: drew converted YOLO boxes back onto a sample image
+  (`MVI_20012_00331`) -- bus, cars, and a van(->truck) all correctly boxed, confirming the
+  coordinate conversion is right, not just "ran without crashing"
+- Output at `data/ua_detrac_yolo/` (989MB, gitignored -- regenerate with the script rather
+  than committing it) with a ready `data.yaml` for `model.train(data=...)`
+
+This was fully unblocked work done while the pilot-site decision (Hanh, critical path) was
+still pending -- doesn't require any real footage.
