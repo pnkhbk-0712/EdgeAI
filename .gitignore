@@ -9,3 +9,4 @@ models/smoketest/
 .venv/
 signs_roboflow/
 data/ua_detrac_yolo/
+docs/audit_report.txt
