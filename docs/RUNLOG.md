@@ -118,3 +118,31 @@ Wrote and ran `src/convert_ua_detrac.py` for real against the actual downloaded 
 
 This was fully unblocked work done while the pilot-site decision (Hanh, critical path) was
 still pending -- doesn't require any real footage.
+
+---
+
+## 2026-09-18 (later) — Motorcycle data added (was 0 examples, now 699)
+
+UA-DETRAC has no motorcycle class (confirmed earlier). Found and merged a real source:
+Kaggle **"Vehicle Dataset for YOLO"** (nadinpethiyagoda/vehicle-dataset-for-yolo), 3000 images,
+6 classes already in YOLO format.
+
+- Downloaded via `kagglehub` -- **this time with `KAGGLEHUB_CACHE` set correctly from the
+  start** (caught myself defaulting to C: again on the first `dataset_download()` call before
+  the env var was set for that command; moved it to D: immediately and fixed the script to
+  always set the env var itself rather than relying on the shell).
+- Verified before use, not after: drew boxes from 3 random motorbike-labeled images back onto
+  their photos. Real, correct boxes. Mixed domain -- some studio/for-sale-listing photos, some
+  genuine street scenes (e.g. a Sri Lanka street photo with a motorbike parked behind a
+  tuk-tuk).
+- **Known limitation, stated plainly:** most of these are close-up single-vehicle photos, not
+  the elevated traffic-camera angle the pilot site will use. This closes the "zero examples"
+  gap, not the "right camera domain" gap -- real pilot-site motorcycle footage will still be
+  a better match once it exists.
+- `src/add_motorbike_data.py` merges only the motorbike boxes (dropping this source's car/bus/
+  truck/van/threewheel classes -- UA-DETRAC already covers those with a more consistent,
+  matching domain) into `data/ua_detrac_yolo/`, remapped to class id 1.
+- **Result: 538 images, 699 motorcycle boxes added** (373 train / 165 val). `data.yaml` needed
+  no changes -- motorcycle was already reserved as class id 1 with 0 examples.
+
+Dataset now has all 4 target classes with real examples: car, motorcycle, bus, truck.
