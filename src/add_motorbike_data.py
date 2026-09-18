@@ -74,10 +74,14 @@ def merge_split(source_dir: Path, our_split: str):
 
 
 def main():
-    os.environ.setdefault(
-        "KAGGLEHUB_CACHE",
-        "D:/DOANMINHHIEU/STUDIES/Ky9/01_Ai/.cache/kagglehub",  # never let this default to C:
-    )
+    if "KAGGLEHUB_CACHE" not in os.environ:
+        raise SystemExit(
+            "Set KAGGLEHUB_CACHE before running this script (portable across machines --\n"
+            "this used to hardcode a Windows D: path here, which broke on Colab/Linux).\n"
+            "Windows (this project): D:/DOANMINHHIEU/STUDIES/Ky9/01_Ai/.cache/kagglehub\n"
+            "Colab: /content/kagglehub_cache (or leave unset there -- /content is fine,\n"
+            "it's a disposable cloud VM, not a machine with a C:/D: drive concern)."
+        )
     path = kagglehub.dataset_download("nadinpethiyagoda/vehicle-dataset-for-yolo")
     source_root = Path(path) / "vehicle dataset"
     if not source_root.exists():

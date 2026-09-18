@@ -171,3 +171,34 @@ training-time ratio to **21.7:1**. VAL is untouched, so evaluation still reflect
 unbalanced real-world distribution -- oversampling changes what the optimizer sees, not how
 the model gets judged. When Hieu trains, watch **per-class mAP for motorcycle specifically**,
 not just overall mAP -- overall mAP can still look fine while motorcycle recall is poor.
+
+---
+
+## 2026-09-18 (later still) — Full data integrity audit, 1 real bug found and fixed
+
+User asked to re-check the data for problems. Ran a full audit (`os.listdir` + `cv2.imread` +
+label parsing) across all 15,874 image+label pairs, not just the earlier leakage/duplicate/
+imbalance checks:
+
+| Check | Result |
+|---|---|
+| Corrupt/unreadable images | **5 found** (see below) |
+| Orphan images (no label file) | 0 |
+| Orphan labels (no image file) | 0 |
+| Malformed label lines (wrong field count / non-numeric) | 0 |
+| Out-of-range coordinates (outside 0-1) | 0 |
+| Zero-size boxes | 0 |
+| Invalid class id | 0 |
+| Empty label files (0 boxes -- background frames, not an error) | 8 |
+
+**The 5 corrupt images were all the same root cause:** one source file from the Kaggle
+motorbike dataset, `pexels-martin-péchy-2078248.jpg`, had its filename's non-ASCII "é"
+mis-decoded into mojibake during zip extraction on this Windows machine (a known class of
+bug: many zip tools assume the wrong codepage for filenames on Windows). OpenCV's `imread`
+additionally can't reliably open non-ASCII paths on Windows even when Python can list them.
+The oversampling step then multiplied this single bad file into 5 corrupt entries (the
+original + 4 duplicates).
+
+**Fix:** removed all 5 (the original file was one of only 538 motorcycle source images, not
+worth building a Unicode-path workaround for one file). Re-ran the full audit after removal:
+**0 issues of every kind** except the same harmless 8 empty-label background frames.
