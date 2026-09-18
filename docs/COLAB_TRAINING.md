@@ -1,9 +1,15 @@
 # Training on Colab — paste these cells in order (Hieu)
 
 Reuses the exact scripts already tested locally (`src/convert_ua_detrac.py`,
-`src/add_motorbike_data.py`, `src/oversample_motorcycle.py`, `src/audit_dataset.py`) rather
-than rewriting the logic in the notebook — one tested version, no drift between local and
-Colab.
+`src/add_motorbike_data.py`, `src/add_motorbike_data_v2.py`, `src/oversample_motorcycle.py`,
+`src/audit_dataset.py`) rather than rewriting the logic in the notebook — one tested version,
+no drift between local and Colab.
+
+**Note (2026-09-18):** `add_motorbike_data_v2.py` was added after a training run was already
+in progress on the earlier dataset snapshot (car:motorcycle 21.7:1). It merges a second real
+motorcycle source (+601 boxes) and needs a Roboflow account + `ROBOFLOW_API_KEY` (same pattern
+as the Kaggle key in Cell 2 — Colab Secrets, not a pasted key). Include it on the *next* run to
+get the improved 12.7:1 ratio; the run already in flight doesn't have it and that's expected.
 
 ## Cell 1 — clone the repo
 
@@ -41,8 +47,11 @@ print(ua_path)
 ## Cell 4 — convert, merge motorcycle data, oversample, audit (in this order)
 
 ```python
+os.environ["ROBOFLOW_API_KEY"] = userdata.get("ROBOFLOW_API_KEY")  # Colab Secrets, same as Kaggle above
+
 !python src/convert_ua_detrac.py
 !python src/add_motorbike_data.py
+!python src/add_motorbike_data_v2.py
 !python src/oversample_motorcycle.py
 !python src/audit_dataset.py
 ```
@@ -73,10 +82,11 @@ results = model.train(
 ## Cell 6 — check per-class results, not just the overall number
 
 Ultralytics prints a per-class table automatically after training/validation. **Find the
-`motorcycle` row specifically** — car:motorcycle was 154:1 before oversampling (now ~22:1 in
-training), so overall mAP can look fine while motorcycle mAP is quietly poor. If motorcycle
-mAP is much worse than car/bus/truck, that's expected at this data volume (699 boxes vs.
-50k+ for car) — note it honestly in the report rather than only reporting the overall number.
+`motorcycle` row specifically** — car:motorcycle was 154:1 before oversampling (now ~12.7:1 in
+training, with both motorcycle sources merged and oversampled), so overall mAP can look fine
+while motorcycle mAP is quietly poor. If motorcycle mAP is much worse than car/bus/truck,
+that's expected at this data volume (~1,300 real boxes vs. 50k+ for car) — note it honestly in
+the report rather than only reporting the overall number.
 
 ## Cell 7 — download the trained weights to hand off to Hoang
 
