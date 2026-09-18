@@ -30,8 +30,14 @@ def has_motorcycle(label_path: Path) -> bool:
 
 
 def main():
-    motorcycle_labels = [lf for lf in LABELS_TRAIN.glob("*.txt") if has_motorcycle(lf)]
-    print(f"Found {len(motorcycle_labels)} motorcycle-containing train images")
+    # Exclude already-"_dup"-suffixed files so re-running this script (e.g. after merging a
+    # new motorcycle source) only oversamples the NEW base images, not the previous run's
+    # duplicates-of-duplicates. Idempotent by construction, not by accident.
+    motorcycle_labels = [
+        lf for lf in LABELS_TRAIN.glob("*.txt")
+        if "_dup" not in lf.stem and has_motorcycle(lf)
+    ]
+    print(f"Found {len(motorcycle_labels)} motorcycle-containing BASE train images (excluding prior duplicates)")
 
     added = 0
     for lf in motorcycle_labels:

@@ -1,0 +1,13 @@
+names:
+- Car
+- motorcycle
+nc: 2
+roboflow:
+  license: CC BY 4.0
+  project: car-and-motorcycle-detection-with-kaggle-dataset
+  url: https://universe.roboflow.com/aliff-haikal-ssf6d/car-and-motorcycle-detection-with-kaggle-dataset/dataset/14
+  version: 14
+  workspace: aliff-haikal-ssf6d
+test: ../test/images
+train: ../train/images
+val: ../valid/images

@@ -202,3 +202,44 @@ original + 4 duplicates).
 **Fix:** removed all 5 (the original file was one of only 538 motorcycle source images, not
 worth building a Unicode-path workaround for one file). Re-ran the full audit after removal:
 **0 issues of every kind** except the same harmless 8 empty-label background frames.
+
+---
+
+## 2026-09-18 (overnight, while Colab training ran) — More real motorcycle data found
+
+User asked to crawl more motorcycle data during the wait. Checked 2 more candidates, real
+verdicts on both:
+
+**Rejected: Kaggle "Detect Person on motorbike or scooter" (savanagrawal).** Drew a sample
+box back onto its image before merging (same discipline as every other source this project)
+and caught a real problem: its single class, `person_bike`, boxes the ENTIRE rider + bike
+together (head to feet), not the vehicle alone. Merging this as our `motorcycle` class would
+have taught the model an incorrect, oversized box definition inconsistent with every other
+source. Not used.
+
+**Merged: Roboflow "car-and-motorcycle-detection-with-kaggle-dataset" (aliff-haikal-ssf6d,
+v14, CC BY 4.0).** Verified a sample box first: vehicle-only, no rider -- consistent with the
+existing sources. `src/add_motorbike_data_v2.py` merges only its motorcycle class (drops its
+Car class, same reasoning as before).
+
+**Real methodology catch worth recording:** a first pass counted only "33 motorcycle boxes" in
+this source using `cat *.txt | awk '{print $1}' | sort | uniq -c` in bash. That number was
+**wrong** -- many of the source's label files lack a trailing newline, so `cat`ing hundreds of
+them together silently merges the last line of one file with the first line of the next,
+undercounting. Re-checked with Python (`.read_text().splitlines()`, which correctly isolates
+each file's own lines regardless of trailing newline) and got the real number: **601 boxes**,
+not 33. Told the user the wrong number first, then caught and corrected it before it shaped
+any real decision -- recorded here so nobody trusts a bash `cat`-based instance count on this
+dataset again.
+
+**Result:** +601 real motorcycle boxes (573 images). Re-ran `oversample_motorcycle.py` (fixed
+to skip already-`_dup`-suffixed files, so it's safe to re-run after adding a new source instead
+of oversampling prior duplicates again) to top up the new images too.
+
+**Train-split car:motorcycle ratio: 154:1 (original) -> 21.7:1 (first oversample) ->
+12.7:1 (now)**. Re-audited after every step: 0 corrupt/orphan/malformed/out-of-range/bad-class
+issues throughout.
+
+**Important timing note:** the Colab training run already in progress started BEFORE this
+data addition -- it's training on the earlier (21.7:1) dataset snapshot. This improvement
+applies to the *next* training run, not the one currently executing.
