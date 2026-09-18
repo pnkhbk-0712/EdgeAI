@@ -146,3 +146,28 @@ Kaggle **"Vehicle Dataset for YOLO"** (nadinpethiyagoda/vehicle-dataset-for-yolo
   no changes -- motorcycle was already reserved as class id 1 with 0 examples.
 
 Dataset now has all 4 target classes with real examples: car, motorcycle, bus, truck.
+
+---
+
+## 2026-09-18 (later still) — Overfit-risk check on the dataset (not a model yet)
+
+No real model has been trained on this dataset yet (only the coco8 smoke-test on unrelated
+generic images), so there is no train/val loss curve to check for classic overfitting. What
+was checked instead, for real:
+
+- **Sequence-level leakage**: 0 overlapping UA-DETRAC sequences between train (60) and val (40)
+  XML sets -- confirmed by directly diffing the sequence name lists, not assumed from the
+  folder split.
+- **Exact image duplication**: hashed all 8,605 train + 5,790 val images (MD5) -- **0 exact
+  duplicates** between the splits.
+- **Class imbalance (the real finding)**: car:motorcycle box ratio was **154:1**
+  (107,889 vs 699 boxes) in the merged dataset. Left as-is, this is a realistic path to a
+  model that looks fine on overall mAP while effectively ignoring motorcycles -- the loss is
+  dominated by car regardless of motorcycle performance.
+
+**Mitigation applied:** `src/oversample_motorcycle.py` duplicates each motorcycle-containing
+TRAIN image+label 5x (373 -> 1,865 motorcycle instances contributing to loss), bringing the
+training-time ratio to **21.7:1**. VAL is untouched, so evaluation still reflects the true,
+unbalanced real-world distribution -- oversampling changes what the optimizer sees, not how
+the model gets judged. When Hieu trains, watch **per-class mAP for motorcycle specifically**,
+not just overall mAP -- overall mAP can still look fine while motorcycle recall is poor.
