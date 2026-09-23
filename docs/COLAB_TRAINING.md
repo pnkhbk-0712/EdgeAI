@@ -11,6 +11,28 @@ motorcycle source (+601 boxes) and needs a Roboflow account + `ROBOFLOW_API_KEY`
 as the Kaggle key in Cell 2 — Colab Secrets, not a pasted key). Include it on the *next* run to
 get the improved 12.7:1 ratio; the run already in flight doesn't have it and that's expected.
 
+**Note (2026-09-19): the previous run lost its trained weights.** Training finished cleanly
+(30/30 epochs, good metrics — see `docs/TRAINING_REPORT.md`), but Colab silently swapped the
+runtime to a fresh backend VM before the download cell ran, wiping `/content` including
+`best.pt`. Confirmed via `uptime` showing a 6-minute-old VM and a brand-new GPU id, with the
+browser tab still showing "Connected" the whole time — Colab gives no warning when this
+happens. **Cell 0 below (mount Drive) is the fix**: point `model.train()`'s `project=` at a
+Drive path so every checkpoint (written after every epoch, not just at the end) lands on
+Drive's persistent storage instead of the VM's disposable disk. A backend swap can still kill
+the *running* training job, but it can no longer erase what's already been saved.
+
+## Cell 0 — mount Google Drive (do this first, every session)
+
+```python
+from google.colab import drive
+drive.mount('/content/drive')
+```
+
+This asks for a one-time Google account permission the first time each session. Once mounted,
+anything written under `/content/drive/MyDrive/...` persists in your actual Drive storage —
+it survives a runtime restart or backend swap, unlike everything else under `/content`, which
+lives only on the current VM's disposable disk and is gone the moment the backend changes.
+
 ## Cell 1 — clone the repo
 
 ```python
@@ -72,12 +94,16 @@ results = model.train(
     imgsz=640,
     batch=16,
     device=0,       # the T4 GPU
-    project="runs",
+    project="/content/drive/MyDrive/EdgeAI_runs",   # Drive, not /content -- survives a runtime swap
     name="edgeai_v1",
 )
 ```
 
 30 epochs is a reasonable first real run, not a final number — raise it once this works.
+`project=` now points at Drive (Cell 0) instead of the local `runs/` folder — this is the one-
+line change that would have saved the previous run. Ultralytics writes `last.pt` after every
+epoch and `best.pt` whenever validation improves, so even a mid-training disconnect only loses
+progress since the last completed epoch, not the whole run.
 
 ## Cell 6 — check per-class results, not just the overall number
 
@@ -90,9 +116,14 @@ the report rather than only reporting the overall number.
 
 ## Cell 7 — download the trained weights to hand off to Hoang
 
+The weights are already safe on Drive at
+`/content/drive/MyDrive/EdgeAI_runs/edgeai_v1/weights/best.pt` the moment training finishes —
+you can grab them anytime from drive.google.com even if this Colab tab closes. This cell just
+also pulls a local copy to your laptop for convenience:
+
 ```python
 from google.colab import files
-files.download("runs/edgeai_v1/weights/best.pt")
+files.download("/content/drive/MyDrive/EdgeAI_runs/edgeai_v1/weights/best.pt")
 ```
 
 Send `best.pt` to Hoang for the optimization/export step (Report Sec. VII.C-D).
