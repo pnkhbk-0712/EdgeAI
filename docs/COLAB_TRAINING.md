@@ -33,12 +33,20 @@ anything written under `/content/drive/MyDrive/...` persists in your actual Driv
 it survives a runtime restart or backend swap, unlike everything else under `/content`, which
 lives only on the current VM's disposable disk and is gone the moment the backend changes.
 
+**Note (2026-09-23): `roboflow` was missing from Cell 1's install line.** A run confirmed the
+Drive fix works (weights survived and downloaded fine this time), but
+`add_motorbike_data_v2.py` failed with `ModuleNotFoundError: No module named 'roboflow'` and the
+rest of Cell 4 kept going anyway, so the failure was easy to miss. Net effect: that run silently
+trained on the older 699-box/21.7:1 dataset instead of the intended 12.7:1 one, with no hard
+error to flag it. Cell 1 below now installs `roboflow` too — check Cell 4's output for a
+`ModuleNotFoundError` before assuming the improved dataset was actually used.
+
 ## Cell 1 — clone the repo
 
 ```python
 !git clone https://github.com/pnkhbk-0712/EdgeAI.git
 %cd EdgeAI
-!pip install -q ultralytics kagglehub
+!pip install -q ultralytics kagglehub roboflow
 ```
 
 ## Cell 2 — Kaggle auth (use Colab Secrets, not a pasted token)
@@ -82,6 +90,11 @@ The last line should print `corrupt_images: 0`, `orphan_images: 0`, `orphan_labe
 `malformed_lines: 0`, `out_of_range: 0`, `zero_size_box: 0`, `bad_class_id: 0`. If any of
 those are non-zero, stop and read `docs/audit_report.txt` before training on it — training on
 bad data just wastes GPU time.
+
+**Also scroll up and check the `add_motorbike_data_v2.py` line specifically** for a traceback —
+a `ModuleNotFoundError` there means the second motorcycle source silently failed to merge (see
+the 2026-09-23 note above) and training would proceed on the smaller, more-imbalanced dataset
+without any other warning.
 
 ## Cell 5 — train
 
