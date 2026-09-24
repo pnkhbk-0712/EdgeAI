@@ -107,3 +107,68 @@ at 0.38 recall would likely miss a lot of real trucks and needs another look.
    documented for motorcycle.
 
 **The computer has been left on, per instructions, since this isn't a small fix.**
+
+---
+
+## 2026-09-24 — Second run (improved 12.7:1 dataset): disconnected mid-training, unresolved
+
+## Summary
+
+Training run `edgeai_v1-2` (auto-incremented name because `edgeai_v1` already existed from the
+2026-09-23 successful run) used the improved dataset: 11,657 train / 6,051 val images, both
+motorcycle sources merged (~12.7:1 car:motorcycle ratio), `project=` correctly pointed at
+`/content/drive/MyDrive/EdgeAI_runs`. Progressed cleanly through **epoch 21/30** with healthy,
+improving metrics (mAP50 0.756, mAP50-95 0.586, no NaN/crashes at any point) before the Colab
+runtime disconnected mid-epoch-22.
+
+**Real per-epoch progress recorded before the disconnect** (all classes, `all` row):
+
+| Epoch | Precision | Recall | mAP50 | mAP50-95 |
+|---|---|---|---|---|
+| 1 | 0.622 | 0.601 | 0.595 | 0.423 |
+| 5 | 0.782 | 0.713 | 0.763 | 0.559 |
+| 10 | 0.777 | 0.618 | 0.727 | 0.549 |
+| 15 | 0.823 | 0.663 | 0.763 | 0.584 |
+| 20 | 0.816 | 0.617 | 0.736 | 0.571 |
+| 21 (last complete) | 0.827 | 0.644 | 0.756 | 0.586 |
+
+This trend is healthy and consistent with the first successful run — no reason to think the
+model itself has a problem. The only failure was infrastructure, not training quality.
+
+## What happened
+
+1. Checked progress periodically (per the monitoring routine); at one check, the training
+   cell's output was frozen at the exact same byte-for-byte state as the previous check 20
+   minutes earlier (epoch 22, 41%, `1:18<1:34`) even after a full page reload -- a real stall,
+   not a rendering artifact.
+2. Confirmed via the cell's execution indicator (idle `[ ]`, not a running spinner) and the
+   "Connect" button (not "Connected" with RAM/Disk gauges) that the runtime had disconnected.
+3. Reconnected the runtime successfully (fresh backend, confirmed via the RAM/Disk tooltip).
+   Since epoch 21 had a completed checkpoint, attempted the cheaper fix -- resume from
+   `last.pt` on Drive -- rather than a full fresh retrain.
+4. Re-running the Drive-mount cell failed twice:
+   - First attempt: `MessageError: Error: credential propagation was unsuccessful`
+   - Retry: `ValueError: mount failed` (from `google.colab.drive._mount`)
+5. Per the standing instruction (don't push past one fix attempt on infrastructure problems,
+   and don't shut down the computer over an unresolved issue), stopped here rather than
+   continuing to retry an already-twice-failed OAuth/mount flow.
+
+## Current state / what's needed
+
+- The `edgeai_v1-2` run folder should still exist on Drive at
+  `/content/drive/MyDrive/EdgeAI_runs/edgeai_v1-2/` with `weights/last.pt` from the completed
+  epoch 21 checkpoint -- **not yet verified**, since Drive couldn't be re-mounted to check.
+- **Computer left running, not shut down** -- this doesn't meet the bar for an unattended
+  shutdown (training did not reach 30/30, and the recovery attempt itself is unresolved).
+- **Recommended next step for Hieu:** open the notebook, manually re-run the Drive-mount cell
+  (a manual retry may succeed where the automated one didn't -- these OAuth/mount errors are
+  sometimes transient), verify `last.pt` exists in the `edgeai_v1-2` folder, then resume with:
+  ```python
+  from ultralytics import YOLO
+  model = YOLO("/content/drive/MyDrive/EdgeAI_runs/edgeai_v1-2/weights/last.pt")
+  results = model.train(resume=True)
+  ```
+  This only needs Cells 1-4 re-run first (clone, auth, dataset download, data processing) to
+  rebuild the local `/content/EdgeAI/data/ua_detrac_yolo/` structure that the fresh VM lost --
+  the checkpoint itself and its training state live on Drive and should still be intact.
+  Only ~9 epochs remain, well under 30 minutes once running.
