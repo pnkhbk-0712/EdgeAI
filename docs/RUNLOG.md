@@ -331,3 +331,24 @@ video playback -- reasonable for a first pass, but should be confirmed against t
 clip (camera is fixed, so the zone shouldn't need to move, but a single frame can't prove that)
 before treating these as ready for real violation testing. The "dừng" group's 5s dwell threshold
 is also an unvalidated starting guess, not a measured value.
+
+---
+
+## 2026-09-30 — Pre-annotate the 606 pilot frames with edgeai_v1_best.pt (CVAT speed-up)
+
+Checked the Colab notebook (smartcity.ipynb) before doing this: it's a brand-new, disconnected
+runtime (6 min uptime, 0 MiB GPU used, `/content` not even cloned yet) -- the v2 training run is
+NOT currently active. Decided not to wait on it: CVAT labeling of real pilot frames is ground-
+truth annotation from video, independent of which model weights exist, so it can and should
+proceed in parallel with any future v2 retrain rather than blocking on it.
+
+Ran `src/preannotate_pilot_frames.py` (new) -- current v1 model over all 606 extracted frames,
+conf >= 0.25 (deliberately low: cheaper for a human to delete a bad box in CVAT than to draw a
+missed one from scratch). Output: one `annotations.xml` (CVAT 1.1 import format) per clip in
+`data/pilot_frames/<tag>/` (gitignored, same as the frames themselves).
+
+Results: nostop_nopark 520 boxes / 151 frames, nostop 305/151, nopark_even 200/153,
+nopark_odd 369/151 -- 1394 draft boxes total. These are draft pre-labels only, not ground truth:
+the model has a known miss on this real footage (2026-09-29 sanity check missed a parked car), so
+every frame still needs a real human correction pass in CVAT (Actions > Upload annotations >
+"CVAT 1.1"), not a rubber-stamp accept.
