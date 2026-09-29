@@ -352,3 +352,16 @@ nopark_odd 369/151 -- 1394 draft boxes total. These are draft pre-labels only, n
 the model has a known miss on this real footage (2026-09-29 sanity check missed a parked car), so
 every frame still needs a real human correction pass in CVAT (Actions > Upload annotations >
 "CVAT 1.1"), not a rubber-stamp accept.
+
+---
+
+## 2026-09-30 — Zone-check images saved for manual review
+
+Saved the 4 self-verification renders (polygon from `src/pilot_zone_configs.py` drawn onto a real
+reference frame per clip) to `docs/zone_check/*.jpg` so the team can open and eyeball them
+directly instead of trusting the polygon numbers alone. `nostop_nopark_zonecheck.jpg` is the
+corrected version (first attempt covered the shop facade + camera mirror, not a real parking
+spot -- see the entry above this one).
+
+Still only a single-frame check each, not full video playback -- open the actual clip if you want
+to confirm the zone holds for the whole ~5 minutes, not just this one frame.
