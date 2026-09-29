@@ -254,7 +254,7 @@ VN parking sign type. Inspected via ffprobe/ffmpeg (duration, resolution, sample
 | File | Duration | Resolution | Sign confirmed in frame |
 |---|---|---|---|
 | `Biển cấm dừng và đỗ xe.mov` | 302s | 1920x1080 @ ~30fps | No-stopping-and-no-parking sign, busy street corner, no time plate visible |
-| `Biển cấm dừng xe.mov` | 301s | 1920x1080 @ ~30fps | No-parking sign (P.131a), quiet alley, no time plate visible |
+| `Biển cấm dừng xe.mov` | 301s | 1920x1080 @ ~30fps | **Correction (2026-09-30):** re-examined at higher zoom -- this is a single-diagonal-slash sign (no-stopping only, distinct from the double-diagonal "X" no-stopping-and-no-parking sign), quiet alley, no time plate visible. The first pass misread this as a plain no-parking sign from a lower-res thumbnail. |
 | `Biển cấm đỗ xe vào ngày chẵn.mov` | 305s | 1920x1080 @ ~30fps | P.131c (even-day), **"06:00-22:00" time plate visible under the sign** |
 | `Biển cấm đỗ xe vào ngày lẻ.mov` | 302s | 1920x1080 @ ~30fps | P.131b (odd-day), **"06:00-22:00" time plate visible under the sign** |
 
