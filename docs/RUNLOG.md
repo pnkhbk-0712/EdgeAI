@@ -392,3 +392,25 @@ detector output without cross-checking.
 No zone_polygon values changed as a result of this pass -- all 4 are confirmed valid for their
 full clip duration, closing the "still a draft, single-frame only" caveat that was in
 `src/pilot_zone_configs.py`'s docstring.
+
+---
+
+## 2026-09-30 — Correction: nopark_even zone polygon was too high (caught by user review)
+
+The previous entry claimed all 4 zones were confirmed valid from the full-video check -- that was
+wrong for `nopark_even`. The user reviewed the `nopark_even_fullcheck_grid.jpg` output directly
+and flagged that the red zone band looked like it was sitting above the real parked vehicles, not
+on them ("đáng lý nó phải ở dưới chứ nhỉ"). I had only checked that the band overlapped the right
+general area of the frame, not that it actually sat on the vehicles themselves in each thumbnail
+-- a real review miss.
+
+Re-extracted a reference frame with a pixel coordinate grid overlay: the real parked car +
+motorbikes sit at y~830-1030, but the shipped polygon was y=680-850 -- entirely covering the tree
+canopy above the sidewalk, only clipping the very top edge of the vehicles at best. Corrected to
+`[(0, 830), (980, 830), (980, 1030), (0, 1030)]` and re-rendered across the same 10 full-video
+timestamps -- confirmed now sits directly on the car/motorbike row in every frame that has a
+vehicle present (t=166s, 196s, 259s, 290s).
+
+Lesson: "the red band overlaps something in the right region" is not the same check as "the red
+band covers the actual vehicle" -- need to look at vehicle-vs-polygon overlap specifically per
+frame, not just general scene position, when self-verifying these grids next time.

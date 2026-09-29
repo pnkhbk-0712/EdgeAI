@@ -51,9 +51,13 @@ PILOT_CLIPS = {
         "dwell_seconds": 60.0,
         "active_hours": (6, 22),  # read directly off the sign's time plate in-frame
         "active_days": "even",
-        # DRAFT polygon: full sidewalk strip spanning both real parked-bike clusters visible in
-        # the reference frame (nopark_even_001140_t0038.03s.jpg), one on each side of the sign.
-        "zone_polygon": [(0, 680), (950, 680), (950, 850), (0, 850)],
+        # Sidewalk strip where real vehicles (car + motorbikes) actually sit, right under the
+        # "PHO" shop awning. CORRECTED 2026-09-30: the original polygon (y=680-850) was too high
+        # -- it covered the tree canopy above the sidewalk, not the vehicles themselves, which
+        # sit at y~830-1030. Caught when the user reviewed the full-video verification grid and
+        # noticed the red zone band sat above the actual cars/motorbikes in every frame; a
+        # coordinate-grid re-check confirmed it. See docs/RUNLOG.md 2026-09-30.
+        "zone_polygon": [(0, 830), (980, 830), (980, 1030), (0, 1030)],
     },
     "nopark_odd": {
         "video_path": VIDEO_DIR / "Biển cấm đỗ xe vào ngày lẻ.mov",
