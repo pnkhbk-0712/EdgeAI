@@ -57,6 +57,16 @@ PILOT_CLIPS = {
         # sit at y~830-1030. Caught when the user reviewed the full-video verification grid and
         # noticed the red zone band sat above the actual cars/motorbikes in every frame; a
         # coordinate-grid re-check confirmed it. See docs/RUNLOG.md 2026-09-30.
+        #
+        # KNOWN SOURCE-FOOTAGE QUIRK (2026-09-30): the camera framing itself jumps to a wider
+        # angle between t=148s and t=149s (confirmed real, not a seek artifact -- checked every
+        # 1s across the transition, see docs/zone_check/nopark_even_framing_shift_t135-150.jpg).
+        # Likely the phone was bumped/adjusted mid-recording. This single polygon was spot-
+        # checked against both the pre-149s and post-149s framing (see
+        # docs/zone_check/nopark_even_early_segment_zonecheck.jpg) and still lands on the real
+        # parked motorbikes in both, so it's kept as one polygon rather than split in two -- but
+        # it's an approximation pre-149s, not pixel-exact like it is post-149s. If precision here
+        # ever matters, trim/label the clip starting at 149s instead of 0s.
         "zone_polygon": [(0, 830), (980, 830), (980, 1030), (0, 1030)],
     },
     "nopark_odd": {

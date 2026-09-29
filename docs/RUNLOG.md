@@ -414,3 +414,23 @@ vehicle present (t=166s, 196s, 259s, 290s).
 Lesson: "the red band overlaps something in the right region" is not the same check as "the red
 band covers the actual vehicle" -- need to look at vehicle-vs-polygon overlap specifically per
 frame, not just general scene position, when self-verifying these grids next time.
+
+---
+
+## 2026-09-30 — Real camera framing shift found in nopark_even.mov (t=148s -> 149s)
+
+User spotted this from the corrected full-check grid: row 1 (t=15-137s) and row 2 (t=166-290s)
+visibly don't match -- different zoom/framing, sign at a different position in each. Checked
+every 1s across t=135-150s to pinpoint it: `docs/zone_check/nopark_even_framing_shift_t135-150.jpg`
+shows a hard jump between t=148s and t=149s -- not gradual, not a seek artifact (unlike the
+nostop_nopark false alarm earlier today, this one reproduces on sequential reads). Most likely
+the phone was bumped or re-set mid-recording.
+
+Spot-checked the current zone_polygon `[(0,830),(980,830),(980,1030),(0,1030)]` against the
+pre-149s framing too (`docs/zone_check/nopark_even_early_segment_zonecheck.jpg`, t=30s/75s/120s/
+145s): it still lands on real parked motorbikes there (t=30s, t=145s), so it's being kept as one
+polygon rather than split into two -- but it's a spot-checked approximation for t<149s, not
+pixel-exact the way it's confirmed for t>=149s. Documented directly in
+`src/pilot_zone_configs.py`'s `nostop_nopark`... `nopark_even` entry so this isn't lost. If the
+team ever needs pixel-exact zone accuracy on this clip specifically, trim/label starting at 149s
+rather than 0s.
