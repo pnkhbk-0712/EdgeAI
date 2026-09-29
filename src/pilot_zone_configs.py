@@ -2,8 +2,16 @@
 
 **Confirmed against full video playback (2026-09-30).** Each polygon was checked against 10
 frames spread across the whole ~5-minute clip, not just the single still frame used to draft it
--- see docs/zone_check/*_fullcheck_grid.jpg and docs/RUNLOG.md 2026-09-30. All 4 clips have a
-genuinely fixed camera and a zone that holds for the full duration.
+-- see docs/zone_check/*_fullcheck_grid.jpg and docs/RUNLOG.md 2026-09-30.
+
+**Correction (2026-09-30, later same day):** "holds for the full duration" above turned out to
+be wrong for `nostop_nopark` -- the user spotted a second full-check grid where the early
+thumbnails looked off, which led to finding that clip's camera actually drifts/settles for its
+first ~32s (likely the parked bike + phone mount were still being adjusted right after the
+recorder walked away) before locking into the position the rest of this file was verified
+against. Each clip now has a `valid_from_sec` field for exactly this: the earliest timestamp its
+`zone_polygon` was confirmed accurate from. Frames sampled before that point (e.g. in
+data/pilot_frames/<tag>/) should not be used for zone/violation testing without re-checking.
 
 Sign group determines the dwell threshold (see docs/ZONE_LABEL_DEFINITIONS.md Q2):
   - "stop"  (cam dung -- no-stopping signs, single or double diagonal slash): a much shorter
@@ -34,6 +42,11 @@ PILOT_CLIPS = {
         # camera rig's own mirror, not an actual parking spot -- caught by rendering the
         # polygon back onto the frame before committing; see docs/RUNLOG.md 2026-09-30.)
         "zone_polygon": [(740, 830), (1080, 830), (1080, 1030), (740, 1030)],
+        # From t=0-~29s this box sits on the shop's sign/awning instead, not the motorbikes --
+        # the camera/bike mount was still settling. Checked second-by-second: t=24-29s wrong,
+        # t=30-31s transitioning, correct and stable from t=32s onward for the rest of the clip.
+        # See docs/zone_check/nostop_nopark_pinpoint2.jpg.
+        "valid_from_sec": 32.0,
     },
     "nostop": {
         "video_path": VIDEO_DIR / "Biển cấm dừng xe.mov",
@@ -44,6 +57,9 @@ PILOT_CLIPS = {
         # DRAFT polygon: sidewalk strip under the shop awning, where 2 real motorbikes are
         # parked in the reference frame (nostop_001140_t0038.03s.jpg).
         "zone_polygon": [(600, 550), (1080, 550), (1080, 800), (600, 800)],
+        # Checked t=5-90s in 5-10s steps: zone lands on the real parked motorbike from t=5s
+        # onward already, no settling delay like nostop_nopark had.
+        "valid_from_sec": 0.0,
     },
     "nopark_even": {
         "video_path": VIDEO_DIR / "Biển cấm đỗ xe vào ngày chẵn.mov",
@@ -68,6 +84,9 @@ PILOT_CLIPS = {
         # it's an approximation pre-149s, not pixel-exact like it is post-149s. If precision here
         # ever matters, trim/label the clip starting at 149s instead of 0s.
         "zone_polygon": [(0, 830), (980, 830), (980, 1030), (0, 1030)],
+        # Checked t=5-90s (all within the pre-149s framing) -- lands on real vehicles from t=5s
+        # onward already, no separate settling delay on top of the 149s framing-shift quirk above.
+        "valid_from_sec": 0.0,
     },
     "nopark_odd": {
         "video_path": VIDEO_DIR / "Biển cấm đỗ xe vào ngày lẻ.mov",
@@ -78,6 +97,9 @@ PILOT_CLIPS = {
         # DRAFT polygon: sidewalk strip right of the sign, where a real motorbike is parked in
         # the reference frame (nopark_odd_001140_t0038.03s.jpg).
         "zone_polygon": [(550, 850), (1080, 850), (1080, 1300), (550, 1300)],
+        # Checked t=5-90s in 5-10s steps: lands on the real parked motorbike from t=5s onward
+        # already, no settling delay.
+        "valid_from_sec": 0.0,
     },
 }
 
@@ -86,8 +108,14 @@ def dwell_frames_for(tag: str, fps: float = FPS) -> int:
     return max(1, round(PILOT_CLIPS[tag]["dwell_seconds"] * fps))
 
 
+def zone_valid_at(tag: str, t_sec: float) -> bool:
+    """Whether PILOT_CLIPS[tag]['zone_polygon'] is confirmed accurate at this timestamp."""
+    return t_sec >= PILOT_CLIPS[tag]["valid_from_sec"]
+
+
 if __name__ == "__main__":
     for tag, cfg in PILOT_CLIPS.items():
         print(f"{tag}: group={cfg['sign_group']} dwell={cfg['dwell_seconds']}s "
               f"({dwell_frames_for(tag)} frames) hours={cfg['active_hours']} "
-              f"days={cfg['active_days']} video_exists={cfg['video_path'].exists()}")
+              f"days={cfg['active_days']} valid_from_sec={cfg['valid_from_sec']} "
+              f"video_exists={cfg['video_path'].exists()}")

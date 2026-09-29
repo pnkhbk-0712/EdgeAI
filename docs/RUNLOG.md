@@ -434,3 +434,37 @@ pixel-exact the way it's confirmed for t>=149s. Documented directly in
 `src/pilot_zone_configs.py`'s `nostop_nopark`... `nopark_even` entry so this isn't lost. If the
 team ever needs pixel-exact zone accuracy on this clip specifically, trim/label starting at 149s
 rather than 0s.
+
+---
+
+## 2026-09-30 — nostop_nopark: zone invalid for its first ~29s (camera settling)
+
+User flagged this by comparing thumbnails across two different check images and noticing they
+looked inconsistent with each other (not the same specific claim as the nopark_even framing-jump
+finding above, but the same instinct: "these don't match, look again"). That prompted re-checking
+ALL 4 clips' early seconds systematically, not just trusting the once-per-clip 10-sample grids
+from earlier today.
+
+Result: `nostop`, `nopark_odd`, and `nopark_even` all check out fine from t=5s onward (see
+`docs/zone_check/*_settle_check.jpg`, checked at 5-10s steps through the first 90s of each). But
+`nostop_nopark` does NOT -- for its first ~29 seconds, `zone_polygon` sits on the shop's sign and
+awning above the sidewalk, not on the parked motorbikes. Pinpointed second-by-second
+(`docs/zone_check/nostop_nopark_pinpoint2.jpg`, t=24-39s): wrong through t=29s, transitioning at
+t=30-31s, stable and correct from t=32s onward for the rest of the ~302s clip. Most likely
+explanation: the rider was still adjusting the bike/phone mount for the first half-minute after
+parking, before it settled into the position the rest of today's checks were done against.
+
+Added a `valid_from_sec` field to every entry in `src/pilot_zone_configs.py` (0.0 for the 3 clips
+that were fine from the start, 32.0 for `nostop_nopark`) plus a `zone_valid_at(tag, t_sec)` helper,
+so this isn't just a comment anyone has to remember -- code checking zone violations against these
+clips can now filter out the unreliable window automatically. Frames already extracted at
+t<32s in `data/pilot_frames/nostop_nopark/` (roughly the first ~15 of 151) should not be used for
+zone/violation testing on this clip without re-checking them individually first.
+
+**Process note:** this is the second time today a "confirmed valid" claim from an earlier full-
+video check turned out to be wrong, and both times the user caught it, not me, by actually looking
+carefully at the grid images rather than trusting my summary of them. Worth internalizing: a
+10-sample-per-clip grid is good for catching gross errors, but not fine-grained enough to catch a
+30-second settling window in a 300-second clip (only ~1 sample lands in that window by chance) --
+should default to denser early-second sampling specifically, since that's where a phone/mount is
+most likely to still be moving, rather than uniform sampling across the whole duration.
