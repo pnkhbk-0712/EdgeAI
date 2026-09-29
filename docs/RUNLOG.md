@@ -365,3 +365,30 @@ spot -- see the entry above this one).
 
 Still only a single-frame check each, not full video playback -- open the actual clip if you want
 to confirm the zone holds for the whole ~5 minutes, not just this one frame.
+
+---
+
+## 2026-09-30 — Full-video zone confirmation (not just single frame)
+
+Checked all 4 zone polygons against the WHOLE ~5-minute clip, not just one reference frame:
+sampled 10 frames evenly spread across each clip's full duration, rendered the zone polygon on
+each, tiled into a grid per clip (`docs/zone_check/*_fullcheck_grid.jpg`).
+
+**Result: all 4 clips genuinely have a fixed camera and a valid zone for their full duration.**
+`nostop`, `nopark_even`, `nopark_odd` were clean on the first pass -- same framing, same sign,
+real vehicles entering/leaving the polygon area as expected across the whole video.
+
+**False alarm caught and corrected on `nostop_nopark`:** the coarse 10-sample grid's last frame
+(~t=287s, seeked via `cap.set(cv2.CAP_PROP_POS_FRAMES, idx)`) showed a completely different
+street with no sign visible -- looked like the camera had been picked up/moved near the end of
+the clip. Before writing that down as a real finding, re-sampled every 1s from t=279-292s to
+pinpoint it -- and the sign and intersection are actually visible and unchanged in every one of
+those 14 frames. The "moved camera" was a false positive from an imprecise OpenCV seek on this
+HEVC/.mov file (landed on/decoded a wrong frame near the seek target, not an actual scene change).
+Lesson: don't trust a single sparsely-seeked frame as evidence of a real event on this codec --
+confirm with a few neighboring sequential reads first, same principle as never trusting one
+detector output without cross-checking.
+
+No zone_polygon values changed as a result of this pass -- all 4 are confirmed valid for their
+full clip duration, closing the "still a draft, single-frame only" caveat that was in
+`src/pilot_zone_configs.py`'s docstring.
