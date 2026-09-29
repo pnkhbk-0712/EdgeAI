@@ -243,3 +243,39 @@ issues throughout.
 **Important timing note:** the Colab training run already in progress started BEFORE this
 data addition -- it's training on the earlier (21.7:1) dataset snapshot. This improvement
 applies to the *next* training run, not the one currently executing.
+
+---
+
+## 2026-09-29 — Real pilot-site footage arrived (blocker finally cleared)
+
+Hieu uploaded 4 real video clips to `D:\DOANMINHHIEU\STUDIES\Ky9\01_Ai\Video\`, one per real
+VN parking sign type. Inspected via ffprobe/ffmpeg (duration, resolution, sample frames):
+
+| File | Duration | Resolution | Sign confirmed in frame |
+|---|---|---|---|
+| `Biển cấm dừng và đỗ xe.mov` | 302s | 1920x1080 @ ~30fps | No-stopping-and-no-parking sign, busy street corner, no time plate visible |
+| `Biển cấm dừng xe.mov` | 301s | 1920x1080 @ ~30fps | No-parking sign (P.131a), quiet alley, no time plate visible |
+| `Biển cấm đỗ xe vào ngày chẵn.mov` | 305s | 1920x1080 @ ~30fps | P.131c (even-day), **"06:00-22:00" time plate visible under the sign** |
+| `Biển cấm đỗ xe vào ngày lẻ.mov` | 302s | 1920x1080 @ ~30fps | P.131b (odd-day), **"06:00-22:00" time plate visible under the sign** |
+
+This directly answers Question 3 in `docs/ZONE_LABEL_DEFINITIONS.md`, which had been blocked on
+a site survey since 2026-09-15 -- `active_hours=(6, 22)` for the two day-restricted signs,
+`active_hours=None` for the other two. Updated that doc with the full table.
+
+**New finding, not previously anticipated:** the "cấm dừng và đỗ xe" clip is a real case of the
+dừng-vs-đỗ distinction the same doc had flagged as a known gap (single dwell threshold can't
+represent VN law's separate "stopping" and "parking" concepts). The current 60s dwell threshold
+is tuned for "đỗ" (parking) and would miss real "dừng" (stopping) violations, which are
+typically much shorter. This needs a decision before labeling: either a second, shorter dwell
+threshold specifically for no-stopping signs, or documenting that this MVP only detects the
+"đỗ" (parking) violation class and treats "dừng" as future work.
+
+**Camera angle note:** all 4 clips are shot from ground/motorbike height (phone mounted on a
+parked scooter), not an elevated traffic-camera angle like UA-DETRAC. This is a real, expected
+domain-gap contributor (Sec. VI.A of the report/proposal already flagged this risk) -- worth
+checking detection quality on a sample frame with the current model before investing in full
+CVAT labeling.
+
+**Not yet done:** frame extraction/sampling for CVAT, labeling itself, zone polygon placement
+per clip, and updating `demo.py`'s `ZONE_ACTIVE_HOURS`/`ZONE_ACTIVE_DAYS` placeholders (currently
+`None`/`None`) to real values per clip.

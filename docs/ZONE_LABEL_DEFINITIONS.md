@@ -30,10 +30,24 @@ thời gian chung. Nếu muốn tách riêng, ghi rõ ở đây: _______________
 
 ## 3. Biển báo tại site có điều kiện giờ/ngày không? (xem Design Note trong artifact)
 
-- Giờ cấm: ___________ (VD: 6h–21h, hoặc "cả ngày" nếu không ghi giờ)
-- Ngày: ☐ Mọi ngày &nbsp;☐ Ngày lẻ &nbsp;☐ Ngày chẵn &nbsp;☐ Chưa biết (chưa đi khảo sát)
+**Đã trả lời được từ 4 video pilot thật (`Video/`, 2026-09-29)** — mỗi video quay 1 biển thật,
+~5 phút/clip, camera cố định (điện thoại kẹp trên xe máy đậu), 1920x1080:
 
-→ Giá trị này sẽ điền vào `active_hours` / `active_days` của `zone_config` sau.
+| File video | Biển | Giờ cấm (đọc từ bảng phụ dưới biển) | Ngày |
+|---|---|---|---|
+| `Biển cấm dừng và đỗ xe.mov` | Cấm dừng VÀ đỗ (P.130 kiểu kết hợp) | Không thấy bảng phụ giờ trong khung đã xem → cả ngày | Mọi ngày |
+| `Biển cấm dừng xe.mov` | Cấm đỗ xe (P.131a, hình tròn đỏ-xanh, không gạch chéo) | Không thấy bảng phụ giờ → cả ngày | Mọi ngày |
+| `Biển cấm đỗ xe vào ngày chẵn.mov` | P.131c (2 vạch dọc) | **06:00 – 22:00** (đọc trực tiếp từ bảng phụ trong khung hình) | Ngày chẵn |
+| `Biển cấm đỗ xe vào ngày lẻ.mov` | P.131b (1 vạch dọc) | **06:00 – 22:00** (đọc trực tiếp từ bảng phụ trong khung hình) | Ngày lẻ |
+
+→ `active_hours=(6, 22)` cho 2 clip ngày chẵn/lẻ; `active_hours=None` (cả ngày) cho 2 clip còn
+lại. `active_days="even"` / `"odd"` / `None` tương ứng theo bảng trên.
+
+**Lưu ý quan trọng phát hiện từ video "cấm dừng và đỗ xe":** đây đúng là trường hợp câu 2 đã
+cảnh báo trước — biển này cấm cả "dừng" (dừng ngắn) lẫn "đỗ" (để xe lại), nghĩa là ngưỡng dwell
+hiện tại (60s) sẽ bỏ sót vi phạm "dừng" thật (vì dừng thường dưới 60s). Cần quyết định: dùng
+ngưỡng dwell riêng, ngắn hơn nhiều (VD 5-10s) cho loại biển này, tách biệt với ngưỡng "đỗ" 60s
+dùng cho các biển P.131a/b/c.
 
 ## 4. Trường hợp mập mờ (edge case) — xử lý sao?
 
