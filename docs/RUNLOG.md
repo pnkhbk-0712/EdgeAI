@@ -298,3 +298,36 @@ This doesn't contradict the earlier validation numbers (car mAP50 0.756 there), 
 specific miss on the exact kind of frame this project needs to get right, and is worth
 investigating once real labels exist for this clip -- rather than assuming validation-set
 performance transfers unchanged to this new camera domain.
+
+---
+
+## 2026-09-30 — Draft zone configs for all 4 pilot clips (src/pilot_zone_configs.py)
+
+Extracted 606 frames total across the 4 real pilot clips (`src/extract_pilot_frames.py`, 1 frame
+every 2s, ~150/clip) into `data/pilot_frames/<tag>/` and zipped each clip's frames for CVAT
+upload.
+
+**Sign re-identification correction:** re-examined `Biển cấm dừng xe.mov` at higher zoom --
+it's a single-diagonal-slash sign (no-stopping only), not a plain no-parking circle as the first,
+lower-resolution pass concluded. This is genuinely distinct from `Biển cấm dừng và đỗ xe.mov`'s
+double-diagonal "X" (no-stopping-and-no-parking). All 4 filenames turn out to describe their real
+signs correctly.
+
+Wrote draft per-clip zone configs (`src/pilot_zone_configs.py`): polygon, dwell threshold (5s for
+the 2 "stop" clips vs. the existing 60s for the 2 "park" clips), and the real active_hours/
+active_days read off each sign in Q3 of `docs/ZONE_LABEL_DEFINITIONS.md`.
+
+**Caught a real placement error before committing it:** the first polygon drafted for
+`nostop_nopark` (estimated from the sign's on-screen position alone) landed on the shop facade
+and the camera rig's own side mirror -- not an actual parking spot. Rendering the polygon back
+onto the source frame (the same verify-before-trusting habit used throughout this project for
+box definitions) caught this immediately; the real target was a row of ~5 parked motorbikes
+visible at the bottom-right of the same frame, missed because the initial guess only looked near
+the sign rather than scanning the whole frame for where vehicles actually sit. Corrected and
+re-verified visually. The other 3 clips' first-attempt polygons were correct on inspection.
+
+**Still a draft, not final:** every polygon here comes from ONE still frame per clip, not full
+video playback -- reasonable for a first pass, but should be confirmed against the whole ~5-minute
+clip (camera is fixed, so the zone shouldn't need to move, but a single frame can't prove that)
+before treating these as ready for real violation testing. The "dừng" group's 5s dwell threshold
+is also an unvalidated starting guess, not a measured value.
