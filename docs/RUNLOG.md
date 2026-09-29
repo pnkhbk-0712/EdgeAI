@@ -279,3 +279,22 @@ CVAT labeling.
 **Not yet done:** frame extraction/sampling for CVAT, labeling itself, zone polygon placement
 per clip, and updating `demo.py`'s `ZONE_ACTIVE_HOURS`/`ZONE_ACTIVE_DAYS` placeholders (currently
 `None`/`None`) to real values per clip.
+
+**Quick sanity check on real footage (before committing to full CVAT labeling):** ran the
+current trained model (`models/edgeai_v1_best.pt`) directly against 6 sampled frames from
+`Biển cấm đỗ xe vào ngày chẵn.mov` (no fine-tuning on this footage yet -- this is the
+pre-labeling baseline). cv2 correctly auto-applied the video's rotation metadata, no manual fix
+needed.
+
+Result: 13 motorcycle detections across the 6 frames, confidence 0.26-0.92 (several >0.8) --
+the model generalizes to this real ground-level, portrait-orientation domain noticeably better
+than the UA-DETRAC-trained-only baseline would suggest, despite none of the training data being
+shot from this camera angle/height.
+
+**New honest finding:** in the t=180s frame, a clearly visible white car parked directly beside
+the restricted-zone sign -- plausibly the actual violation subject in this clip -- was **not
+detected at all** (0 car/bus/truck detections across all 6 sampled frames, only motorcycles).
+This doesn't contradict the earlier validation numbers (car mAP50 0.756 there), but it's a real,
+specific miss on the exact kind of frame this project needs to get right, and is worth
+investigating once real labels exist for this clip -- rather than assuming validation-set
+performance transfers unchanged to this new camera domain.
