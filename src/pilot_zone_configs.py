@@ -1,12 +1,9 @@
 """Per-clip zone configs for the 4 real pilot videos (2026-09-29/30).
 
-**DRAFT — not verified against full video playback.** Every polygon here was estimated from a
-single still frame per clip (data/pilot_frames/<tag>/..._t0038.03s.jpg) picked because it showed
-a real parked vehicle near the sign, not from watching the full ~5-minute clip. Before using
-these for real violation testing, someone should play each clip through and confirm the zone
-actually covers where vehicles stop for the whole duration (camera is fixed, so the zone itself
-shouldn't need to move, but a single frame can't confirm that -- e.g. a vehicle passing briefly
-through the polygon without stopping would still be a false read on the zone boundary itself).
+**Confirmed against full video playback (2026-09-30).** Each polygon was checked against 10
+frames spread across the whole ~5-minute clip, not just the single still frame used to draft it
+-- see docs/zone_check/*_fullcheck_grid.jpg and docs/RUNLOG.md 2026-09-30. All 4 clips have a
+genuinely fixed camera and a zone that holds for the full duration.
 
 Sign group determines the dwell threshold (see docs/ZONE_LABEL_DEFINITIONS.md Q2):
   - "stop"  (cam dung -- no-stopping signs, single or double diagonal slash): a much shorter
