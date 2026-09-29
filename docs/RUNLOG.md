@@ -468,3 +468,48 @@ carefully at the grid images rather than trusting my summary of them. Worth inte
 30-second settling window in a 300-second clip (only ~1 sample lands in that window by chance) --
 should default to denser early-second sampling specifically, since that's where a phone/mount is
 most likely to still be moving, rather than uniform sampling across the whole duration.
+
+---
+
+## 2026-09-30 — Real v2 model has arrived: edgeai_v2_best.pt (run name "edgeai_v1-3")
+
+User downloaded weights from Drive twice today. First download (`0f007718-edgeai_v2_best.pt`)
+turned out to be byte-identical to v1 (same SHA-256, same checkpoint date 2026-09-23) -- not
+actually a new model, flagged and discarded rather than silently evaluated as if it were new.
+
+Second download was a full training run folder (`edgeai_v1-3/`, from
+`/content/drive/MyDrive/EdgeAI_runs/edgeai_v1-3` per its args.yaml) -- this one is real: different
+checksum (`e75227ff...`), full 30/30 epochs, `data: data/ua_detrac_yolo/data.yaml`.
+`docs/train_v2/labels.jpg` confirms the training data really is the rebalanced set: car=52332,
+motorcycle=4115, bus=3410, truck=5959 -- car:motorcycle = **12.7:1**, matching the ratio the team
+had been working toward. Copied `weights/best.pt` to `models/edgeai_v2_best.pt` (gitignored like
+v1) and the small artifacts (args.yaml, results.csv, confusion matrices, results.png, labels.jpg)
+to `docs/train_v2/`.
+
+**Validation-set results (final epoch, docs/train_v2/results.csv):** precision=0.817,
+recall=0.653, mAP50=0.746, mAP50-95=0.586. Essentially flat vs v1's mAP50=0.743 overall -- but the
+per-class confusion matrix (`docs/train_v2/confusion_matrix_normalized.png`) tells a more useful
+story than the aggregate number:
+  - motorcycle recall = **0.97** -- the rebalancing worked exactly as intended for the class it
+    targeted.
+  - car recall = 0.72 (27% of true cars missed as background).
+  - bus recall = 0.76.
+  - truck recall = only **0.47**, with 21% of true trucks misclassified as car and 31% missed
+    entirely -- a real weakness that wasn't as visible before and is worth investigating (possibly
+    the oversampling/rebalancing script shifted truck representation down as a side effect; needs
+    checking against v1's own confusion matrix, which wasn't saved, so can't diff directly).
+
+**Real-footage re-check (the exact case v1 missed, 2026-09-29 sanity check):** re-ran both v1 and
+v2 on `Biển cấm đỗ xe vào ngày chẵn.mov` at t=175-185s, the frames with the white car parked
+beside the sign. **v2 still misses it completely** -- 0 car/bus/truck detections in either model
+across all 5 timestamps, only motorcycles (docs/train_v2/nopark_even_t180_v1_stillmisses.jpg vs
+_v2_stillmisses.jpg, side by side). So the car:motorcycle rebalancing fixed the class-imbalance-
+driven motorcycle gap it targeted, but did NOT fix this specific real miss -- consistent with the
+miss being a domain-gap problem (ground-level phone camera vs UA-DETRAC's elevated traffic-camera
+training footage) rather than a class-imbalance problem. Rebalancing the data was the right first
+step but isn't sufficient on its own; this real footage will still need its own labels before the
+system can be trusted to catch a case like this.
+
+**Bottom line for the team:** use v2 going forward (motorcycle detection is meaningfully better
+and that was the main goal), but don't claim the parked-car miss is fixed -- it isn't, and now
+there's a new truck-confusion weakness to flag in the report's limitations section too.
