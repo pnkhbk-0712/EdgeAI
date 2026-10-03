@@ -11,3 +11,5 @@ signs_roboflow/
 data/ua_detrac_yolo/
 data/pilot_frames/
 docs/audit_report.txt
+data/helmet_roboflow/
+data/samples/helmet_events.jsonl

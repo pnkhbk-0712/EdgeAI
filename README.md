@@ -1,5 +1,10 @@
 # Edge AI Illegal Parking Detection — Prototype
 
+> **Branch note (2026-10-03):** this `helmet-safety-pivot` branch is a parallel pivot to a
+> construction helmet/PPE compliance project -- see `docs/PIVOT_HELMET_DETECTION.md` for why, and
+> `docs/HELMET_TRAINING.md` + `src/demo_helmet.py` for the new work. The illegal-parking project
+> described below is unchanged and still fully intact on `main`.
+
 Code counterpart to `Edge_AI_Illegal_Parking_Detection_Report.docx`. Structure follows the
 report's own sections so it's obvious which folder answers which part of the proposal.
 
