@@ -513,3 +513,62 @@ system can be trusted to catch a case like this.
 **Bottom line for the team:** use v2 going forward (motorcycle detection is meaningfully better
 and that was the main goal), but don't claim the parked-car miss is fixed -- it isn't, and now
 there's a new truck-confusion weakness to flag in the report's limitations section too.
+
+---
+
+## 2026-10-03 — Project pivot: illegal parking -> construction helmet/PPE compliance
+
+Team decided to switch topics (not a technical failure of the parking project -- see
+`docs/PIVOT_HELMET_DETECTION.md` for the full reasoning): the teacher requires a live in-class
+demo rather than a recorded video, and the parking project's real subject (actual street traffic)
+can't be staged live in a classroom. Team bandwidth is also tight this semester.
+
+New topic grounded in real numbers, not a generic "safety matters" claim: Vietnam had 8,286
+workplace accidents in 2024 (727 deaths), construction accounts for 62% of workplace fatalities,
+and 69.1% of construction accidents specifically are falls/falling objects -- exactly what a hard
+hat mitigates (sources and legal basis in `docs/PIVOT_HELMET_DETECTION.md`). Harness/lanyard
+detection was investigated and explicitly descoped: much smaller public datasets, harder visual
+task (thin straps, occlusion), and "harness visible" doesn't establish "clipped to an anchor",
+which is what actually matters for fall safety -- flagged as future work, not silently dropped.
+
+This work continues on a new branch, `helmet-safety-pivot` -- `main` (the parking project) is
+untouched and still fully documented/available.
+
+Reused as-is from the old project: `src/zone.py`'s `RestrictedZone` class (fully generic --
+nothing vehicle-specific in it), the per-track dwell-debounce pattern, the `events.jsonl` logging
+convention, and the whole YOLOv8n train/export/quantize Colab workflow.
+
+New dataset: Hard Hat Workers Dataset (Northeastern University - China, via Roboflow,
+`joseph-nelson/hard-hat-workers` v10 `raw_AllClasses`), License CC0, 7,035 images, 3 classes
+(head/helmet/person), 70/20/10 split -- confirmed directly on Roboflow Universe rather than
+guessed, see `src/download_helmet_data.py`.
+
+**Two real bugs found running this for the first time on Colab (both the user's own execution,
+not a dry run on my end):**
+
+1. **Wrong clone path.** `docs/HELMET_TRAINING.md` told Colab to `%cd EdgeAI/LA4/prototype` after
+   cloning, assuming the GitHub repo had the same `LA4/prototype` nesting as the local disk layout.
+   It doesn't -- the repo root on GitHub IS this folder's contents directly. `%cd` failed with
+   `[Errno 2] No such file or directory`. Fixed the doc to clone into an explicit
+   `/content/EdgeAI_helmet` and `%cd` straight into that, no nested path. (Caught because the user
+   actually ran it and reported the exact error, not because I tested it myself -- this doc was
+   written without ever running it, which is exactly the kind of untested claim this project
+   otherwise tries hard to avoid.)
+
+2. **Silent no-op in `download_helmet_data.py`.** The script pre-created
+   `data/helmet_roboflow/` with `mkdir(exist_ok=True)` before calling Roboflow's
+   `.download(location=...)`. The roboflow SDK (v1.6.1) treats an already-existing target
+   directory as "already downloaded here" and silently skips writing anything -- no exception, no
+   warning, just an empty folder and a falsely reassuring "Downloaded to: ..." print. Diagnosed by
+   having the user run `find`/`ls` on the supposedly-downloaded folder and finding it completely
+   empty. Fixed: don't pre-create the folder (wipe it first if present instead), and added a
+   post-download check that `data.yaml` actually exists before declaring success, rather than
+   trusting the SDK's return value alone.
+
+**Process note, same lesson as the zone-check sessions on the old project:** both bugs were caught
+because the user ran the real thing and pushed back on a result that looked wrong ("have you
+updated the RUNLOG yet", "where exactly does this fail"), not because I verified before handing
+off instructions. Colab/GPU steps can't be dry-run from this machine (no local GPU, no
+ROBOFLOW_API_KEY here) -- worth being more explicit up front about which parts of a handed-off
+instruction are untested, rather than presenting Colab cells with the same confidence as code
+that's actually been run.
