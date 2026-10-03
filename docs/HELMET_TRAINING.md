@@ -13,11 +13,13 @@ drive.mount('/content/drive')
 ```
 
 ```python
-# 2. Clone this branch (NOT main -- the helmet work lives on helmet-safety-pivot)
+# 2. Clone this branch (NOT main -- the helmet work lives on helmet-safety-pivot).
+# NOTE: the GitHub repo root IS this prototype/ folder's contents directly -- there is no
+# nested LA4/prototype path inside the clone, only locally on disk. Don't add it here.
 %cd /content
-!rm -rf /content/EdgeAI
-!git clone -b helmet-safety-pivot https://github.com/pnkhbk-0712/EdgeAI.git
-%cd EdgeAI/LA4/prototype
+!rm -rf /content/EdgeAI_helmet
+!git clone -b helmet-safety-pivot https://github.com/pnkhbk-0712/EdgeAI.git /content/EdgeAI_helmet
+%cd /content/EdgeAI_helmet
 !pip install -q ultralytics roboflow
 ```
 
