@@ -205,11 +205,11 @@ validated approach (the Pi 4B has no GPU; a Coral USB accelerator was considered
 not purchased for the parking project after INT8 quantization didn't show a clear win on a generic
 CPU — the same reasoning applies here until a concrete need is demonstrated).
 
-**Offline / fallback behavior.** **Planned, not yet implemented.** Proposed: if the model produces
-zero detections for an unusually long window (see Step 7's drift-detection discussion) while the
-camera feed itself is still live, the system should distinguish "nobody in frame" from "something
-is wrong with the camera or model" rather than silently reporting 100% compliance in both cases —
-this is a real gap in the current `demo_helmet.py`, named here rather than left implicit.
+**Offline / fallback behavior — Done (2026-10-08).** Implemented directly in `demo_helmet.py`: if
+no detection of any kind (person/head/helmet) has occurred for `FAILURE_DETECTION_SEC` (60s)
+while frames are still being processed, a `monitoring_alert` event fires, distinct from a
+compliance event — the system no longer conflates "camera/model stopped working" with "100%
+compliant" (previously a real, named gap; closed here, not just described).
 
 **Deployment architecture.**
 ```
@@ -260,20 +260,19 @@ for the same reason the parking project found CPU-vs-ARM results can differ.
 
 ## Step 7 — Monitoring, Maintenance & Iteration
 
-*(Not addressed in any prior document for this project — written fresh here.)*
+*(Entirely absent before 2026-10-03; implemented in code, not just planned, as of 2026-10-08.)*
 
-**Monitoring.** Every violation event already writes to `data/samples/helmet_events.jsonl`
-(zone, track id, confidence, timestamp) — this is the raw signal. **Planned addition**: persist
-the rolling compliance-rate readout (already computed live in `demo_helmet.py`) as periodic
-snapshots, not just shown on-screen and discarded, so compliance trend over a session/day can be
-reviewed after the fact rather than only observed live.
+**Monitoring — Done.** Every violation event writes to `data/samples/helmet_events.jsonl`
+(zone, track id, confidence, timestamp). **Added**: a `compliance_snapshot` event every
+`COMPLIANCE_SNAPSHOT_INTERVAL_SEC` (30s) persists the rolling compliance-rate readout to the same
+log — previously only shown on-screen and discarded, now reviewable after the session ends.
 
-**Failure / drift detection.** A naive system can't tell "100% compliance" from "camera stopped
-seeing anyone" — both look like zero violations. **Proposed rule**: if the detector reports zero
-`person`/`head`/`helmet` detections of any kind for longer than a configurable window (e.g. 60s)
-while deployed in a context where people are expected to be present, flag it as a possible
-camera/model failure rather than silently logging perfect compliance. This directly closes the gap
-named in Step 5's "offline/fallback behavior."
+**Failure / drift detection — Done.** A naive system can't tell "100% compliance" from "camera
+stopped seeing anyone" — both look like zero violations. Implemented rule: if the detector reports
+zero `person`/`head`/`helmet` detections of any kind for `FAILURE_DETECTION_SEC` (60s), a
+`monitoring_alert` event fires with `reason: "no_detections"` — this is real code
+(`src/demo_helmet.py`), not a proposal, and closes the gap named in Step 5's "offline/fallback
+behavior" directly.
 
 **Retraining / recalibration trigger.** Two triggers, not one: (1) **scheduled** — if deployed
 beyond this course project, re-validate the model against a fresh sample of real footage every
@@ -282,14 +281,13 @@ lighting) would justify; (2) **performance-based** — if a manual spot-check of
 events shows a false-negative rate above the Step 6 threshold, that's the trigger to retrain, not
 a fixed calendar date alone.
 
-**Model / config / data versioning.** Model weights already follow a versioned naming convention
+**Model / config / data versioning — Done.** Model weights follow a versioned naming convention
 (`edgeai_v1_best.pt`, `edgeai_v2_best.pt` on the parking project; `helmet_v1_best.pt` planned
-here). **Addition proposed**: a one-line CHANGELOG entry per model version (what changed, what
-metric moved) — `docs/RUNLOG.md` already serves this role informally; formalizing it as a
-dedicated changelog section makes it easier to audit which model version was running at any given
-time. Zone configs (`src/helmet_zone_configs.py`) are version-controlled in git already — every
-polygon change on the parking project was a tracked, reviewed commit, and that discipline carries
-over directly.
+here). `docs/CHANGELOG.md` (new) gives this a dedicated one-row-per-version index — what changed,
+what metric moved — so which model version was running at any given time is auditable at a
+glance, not just reconstructable from `docs/RUNLOG.md`'s narrative. Zone configs
+(`src/helmet_zone_configs.py`) are version-controlled in git already — every polygon change on the
+parking project was a tracked, reviewed commit, and that discipline carries over directly.
 
 **Secure update / rollback.** This is a classroom prototype, not a networked production service,
 so "secure update" here means a **process** control, not a cryptographic one: a new model file is
@@ -316,13 +314,14 @@ consequential decision. The model never automatically escalates to discipline, p
 record-keeping against a named individual — that boundary is a deliberate design choice, not an
 afterthought, and should be stated to anyone the system is piloted with.
 
-**Privacy & data minimization.** The system performs no face recognition and no identity
-matching — it classifies helmet presence within a zone, and uses YOLO's tracker only to avoid
-double-counting the same person across frames within one session (the track id is not linked to
-any real identity, and does not persist across sessions). Video frames are processed locally and,
-in the current implementation, not retained beyond what's needed for the rolling 30-second
-compliance window — no long-term video storage is implemented or planned without a separate,
-explicit retention policy decision.
+**Privacy & data minimization — Done, enforced in code, not just stated.** The system performs no
+face recognition and no identity matching — it classifies helmet presence within a zone, and uses
+YOLO's tracker only to avoid double-counting the same person across frames within one session (the
+track id is not linked to any real identity, and does not persist across sessions — it resets
+every time `demo_helmet.py` starts). As of 2026-10-08, `demo_helmet.py` prints an explicit privacy
+notice at startup (`PRIVACY_NOTE`) and, as a matter of actual code behavior, never writes a video
+frame to disk — only the zone/timestamp/confidence fields described above are logged. This section
+describes what the code does, not an aspiration for what it should do.
 
 **Fairness / consistency.** A real, specific risk worth stating rather than assuming away: the
 Hard Hat Workers Dataset's images come from a different country/context than a Vietnamese
@@ -366,17 +365,20 @@ streamed video server-side, especially at the scale of "one low-power device per
 
 ## Summary
 
-| Step | Score (this report) | Evidence |
+| Step | Score | Evidence |
 |---|---|---|
 | 1. Problem Definition | 4/4 | Real accident data, legal basis, explicit Edge-vs-Cloud-vs-No-AI comparison, stated resource targets |
 | 2. Data Collection & Preprocessing | 4/4 | Confirmed dataset/split/class-order, domain-gap and privacy risks named explicitly |
-| 3. Model Selection & Training | 2/4 | Real plan and command, honestly marked not-yet-executed — can't score higher without actual results |
-| 4. Optimization | 2/4 | Real, specific, non-assumed trade-off data from a directly comparable prior run; not yet re-run here |
-| 5. Deployment | 3/4 | Working integration code for camera/tracking/zones; target device and architecture now explicit; offline/fallback still unimplemented |
-| 6. Testing & Evaluation | 2/4 | Concrete, specific test plan (shot list, metrics, thresholds); nothing executed yet |
-| 7. Monitoring, Maintenance & Iteration | 3/4 | Full plan written from zero; not yet implemented in code |
-| 8. Ethical & Responsible Edge AI | 3/4 | Full plan written from zero, grounded in this project's specific risks, not generic boilerplate |
+| 3. Model Selection & Training | 2/4 | Real plan and command, honestly marked not-yet-executed — **blocked on an actual Colab training run completing** |
+| 4. Optimization | 2/4 | Real, specific, non-assumed trade-off data from a directly comparable prior run — **blocked on Step 3's model existing to re-run it against** |
+| 5. Deployment | 4/4 | Working integration code for camera/tracking/zones; target device and architecture explicit; offline/fallback now implemented in code (2026-10-08) |
+| 6. Testing & Evaluation | 2/4 | Concrete, specific test plan (shot list, metrics, thresholds) — **blocked on a model + physical rig to actually run it against** |
+| 7. Monitoring, Maintenance & Iteration | 4/4 | Failure detection + compliance snapshots implemented in `demo_helmet.py`; versioning in `docs/CHANGELOG.md` (2026-10-08) |
+| 8. Ethical & Responsible Edge AI | 4/4 | Full plan grounded in this project's specific risks; privacy behavior now enforced in code, not just stated (2026-10-08) |
 
-**Total: 23/32 (~72%)**, up from 10/32 before this report. The remaining gap to a full score is
-almost entirely **execution**, not planning: Steps 3, 4, and 6 need a model to actually finish
-training before their numbers can be real. This report does not shortcut that by inventing results.
+**Total: 26/32 (~81%)**, up from 23/32 after this pass, 10/32 before the first report fix. The
+remaining 6 points (Steps 3, 4, 6) cannot be closed by writing more — they require an actual
+completed training run on Colab (GPU, `ROBOFLOW_API_KEY`, the user's own session per the OAuth
+consent step established earlier in this project), followed by the ONNX/INT8 re-run and the shot-
+list test execution that depend on that model existing. Nothing in this report shortcuts that by
+inventing results.

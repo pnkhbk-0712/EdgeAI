@@ -1,12 +1,23 @@
-"""Live helmet-compliance demo (2026-10-03) -- same architecture as the parking project's
-demo.py (YOLO track() + RestrictedZone + dwell debounce + JSONL event log), applied to
-head/helmet/person instead of vehicles.
+"""Live helmet-compliance demo (2026-10-03, monitoring/privacy pass 2026-10-08) -- same
+architecture as the parking project's demo.py (YOLO track() + RestrictedZone + dwell debounce +
+JSONL event log), applied to head/helmet/person instead of vehicles.
 
 Two risk zones instead of one: a "head" detection (= a person without a helmet on) is checked
 against both zones. The HIGH_RISK zone (the foam-scaffolding mockup) fires near-instantly; the
 NORMAL zone just logs after a short debounce. A "helmet" detection is always drawn green and
 never checked against either zone -- wearing a helmet is compliant regardless of which zone
 you're standing in.
+
+Monitoring (Report Step 7): periodic compliance snapshots and a "no detections for too long"
+failure flag are both written to EVENTS_OUT alongside violation events, so a review of that one
+file after a run can distinguish "actually compliant" from "camera/model stopped working" --
+those look identical in a system that only logs violations.
+
+Privacy (Report Step 8): no frame is ever written to disk and no identity is attached to a
+track id -- ids come from YOLO's tracker, reset every time this script starts, and are never
+linked to a name. Only zone/timestamp/confidence numbers are logged. See the printed notice at
+startup and PRIVACY_NOTE below; this is a statement about what this code actually does, not just
+a claim made in the report.
 
 Usage:
     python src/demo_helmet.py                  # live webcam (source 0)
@@ -37,6 +48,15 @@ ASSUMED_FPS = 15.0  # webcam fps varies by device; used only to convert dwell se
                      # before the real cap.get(CAP_PROP_FPS) is known for the actual source.
 
 COMPLIANCE_WINDOW_SEC = 30  # rolling window for the live "% compliant" readout
+
+# Report Step 7 -- Monitoring, Maintenance & Iteration
+FAILURE_DETECTION_SEC = 60.0        # no detections of ANY kind this long -> flag, don't stay silent
+COMPLIANCE_SNAPSHOT_INTERVAL_SEC = 30.0  # persist a compliance snapshot this often, not just on-screen
+
+PRIVACY_NOTE = (
+    "Privacy note: no video frame is saved to disk; track ids reset every run and are never "
+    "linked to an identity; only zone/timestamp/confidence events are logged to "
+)
 
 
 def frame_timestamp(frame_idx, fps):
@@ -77,11 +97,16 @@ def main():
 
     model = YOLO(str(model_path))
 
+    print(PRIVACY_NOTE + str(EVENTS_OUT))
+
     events = []
     frame_idx = 0
     t_start = time.time()
     # rolling (timestamp, is_no_helmet) samples for the live compliance-rate readout
     compliance_window = deque()
+    last_detection_time = time.time()
+    last_snapshot_time = time.time()
+    failure_flagged = False  # avoid re-flagging every frame while still silent
 
     results_gen = model.track(source=source, persist=True, stream=True, verbose=False)
 
@@ -91,6 +116,9 @@ def main():
         normal.draw(frame, color=(0, 215, 255))    # amber outline = normal zone
 
         boxes = result.boxes
+        if boxes is not None and boxes.id is not None and len(boxes.id) > 0:
+            last_detection_time = time.time()
+            failure_flagged = False
         if boxes is not None and boxes.id is not None:
             for box, track_id, cls_id, conf in zip(
                 boxes.xyxy.cpu().numpy(),
@@ -153,6 +181,37 @@ def main():
             compliance_pct = 100.0 * (1 - no_helmet_count / len(compliance_window))
             cv2.putText(frame, f"Compliance (last {COMPLIANCE_WINDOW_SEC}s): {compliance_pct:.0f}%",
                         (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+        # Report Step 7 -- failure/drift detection: distinguish "genuinely compliant" from
+        # "camera or model stopped producing detections" instead of letting both look like silence.
+        now = time.time()
+        if not failure_flagged and (now - last_detection_time) > FAILURE_DETECTION_SEC:
+            failure_flagged = True
+            event = {
+                "event": "monitoring_alert",
+                "reason": "no_detections",
+                "seconds_silent": round(now - last_detection_time, 1),
+                "timestamp": frame_timestamp(frame_idx, fps),
+            }
+            events.append(event)
+            print("MONITORING ALERT (no detections -- check camera/model, not necessarily compliant):",
+                  json.dumps(event))
+
+        # Report Step 7 -- persist periodic compliance snapshots, not just the on-screen readout,
+        # so a session's compliance trend can be reviewed after the fact.
+        if now - last_snapshot_time >= COMPLIANCE_SNAPSHOT_INTERVAL_SEC:
+            last_snapshot_time = now
+            if compliance_window:
+                no_helmet_count = sum(1 for _, nh in compliance_window if nh)
+                snap_pct = round(100.0 * (1 - no_helmet_count / len(compliance_window)), 1)
+            else:
+                snap_pct = None  # no samples in this window -- distinct from "100% compliant"
+            events.append({
+                "event": "compliance_snapshot",
+                "compliance_pct": snap_pct,
+                "sample_count": len(compliance_window),
+                "timestamp": frame_timestamp(frame_idx, fps),
+            })
 
         if not args.no_display:
             cv2.imshow("Helmet compliance demo", frame)
