@@ -752,3 +752,30 @@ remains an unverified draft -- this fix only makes the already-chosen fractions 
 at any resolution, it doesn't make the fractions themselves correct for the real foam-mockup rig.
 That calibration still needs a real reference frame from the actual demo setup, per the existing
 note in `helmet_zone_configs.py`.
+
+---
+
+## 2026-10-11 — Real Pi 4B latency: 0.30 FPS, far below the <300ms/frame target
+
+Reviewed Hung's `docs/RASPI_CHECK_REPORT.md` (completed 2026-10-09, separate from the helmet
+pivot work -- this is shared infrastructure carried over from the parking project's Pi 4B).
+
+**Real, measured result: 0.30 FPS running stock `yolov8n.pt` on the Pi 4B** -- 61x slower than the
+laptop CPU baseline (18.4 FPS), i.e. ~3.3s/frame. This is **11x over the <300ms/frame target**
+stated in `docs/PROJECT_REPORT.md` Step 1's resource constraints. This was the raw, un-optimized
+PyTorch model, not yet the ONNX export from Step 4 -- but a 61x gap is far larger than the ~56%
+speedup ONNX gave on a laptop CPU, so ONNX alone will not close it.
+
+**Confound not yet ruled out:** Hung's own report flags the Pi's power supply as 5V/2A, below the
+recommended 5V/3A for a Pi 4B, with a low-power warning from the OS itself -- CPU throttling from
+an underpowered supply can look exactly like "the hardware is just too slow" without being the
+true ceiling. Camera sanity check (RASPI_CHECK_REPORT.md Step 3) also hasn't been run yet.
+
+**Action before concluding anything stronger:** (1) swap in a proper 5V/3A supply and re-measure
+before trusting 0.30 FPS as the Pi's real ceiling: (2) re-measure with the actual ONNX export
+(Step 4) instead of stock `yolov8n.pt`, since that's what would really be deployed. If the gap
+is still this large after both, this is real, concrete evidence for reconsidering the Coral USB
+accelerator the team previously and deliberately deferred buying (parking project's own hardware
+notes: "don't buy this first... prove the Pi genuinely can't hit >=5 FPS before spending on this")
+-- 0.30 FPS is well under even that 5 FPS bar, so that condition may now be met, pending the two
+checks above ruling out the power-supply confound first.
