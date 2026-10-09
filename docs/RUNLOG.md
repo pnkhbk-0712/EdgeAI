@@ -716,3 +716,39 @@ good evidence it's a real property of this CPU class, not a one-off fluke.
 **Decision: deploy ONNX fp32, not INT8.** Both comfortably clear the <300ms/frame target on this
 laptop CPU (23-53ms) -- not yet the Pi 4B specifically, that re-measurement is still Step 5/6's
 job, not assumed to transfer from this number either.
+
+---
+
+## 2026-10-11 — First real webcam test: detection works, zone drawing was wrong
+
+User ran `demo_helmet.py` on their laptop webcam for the first time (ONNX model, real face,
+real room). **Helmet/no-helmet detection worked correctly** -- "NO HELMET" fired on a real bare
+head at confidence 0.77-0.83, high-risk zone alert triggered as designed, events logged to
+`helmet_events.jsonl` exactly as expected. This is the first real confirmation that the
+Hard-Hat-Workers-trained model generalizes past its own validation images to an actual live
+webcam feed -- closes part of the domain-gap question flagged in Step 2, for the detection side
+at least (zone calibration is separate, see below).
+
+**Real bug found and fixed:** the "normal zone" boundary rendered as a stray horizontal line in
+the wrong place (screenshot showed it cutting across the middle of the frame, not forming a
+sensible rectangle). Cause: `src/helmet_zone_configs.py`'s polygons were hardcoded pixel
+coordinates assuming a 1280x720 frame -- the user's actual webcam captures at a different
+resolution, so the absolute pixel values landed in the wrong place relative to the real frame
+size. The exact same category of mistake as nothing before on this project, but a new instance of
+it: a config number that looked reasonable but was never checked against the actual runtime
+condition it would run under.
+
+**Fix:** rewrote the zone polygons as *fractions* of frame width/height (0.0-1.0) instead of
+absolute pixels, with a `scale_polygon()` helper that converts to real pixel coordinates using the
+webcam's actual reported resolution (`cv2.CAP_PROP_FRAME_WIDTH/HEIGHT`), read fresh at the start
+of every run instead of assumed. Verified the conversion is backward-compatible (1280x720 input
+reproduces the exact original pixel values) and scales correctly for 640x480 and 1920x1080 too.
+This makes the zone config resolution-independent -- it'll draw proportionally correctly on
+whatever camera actually gets used, not just the one resolution it happened to be eyeballed
+against.
+
+**Still open:** the zone's *position* (which fraction of the frame is "high-risk" vs "normal")
+remains an unverified draft -- this fix only makes the already-chosen fractions render correctly
+at any resolution, it doesn't make the fractions themselves correct for the real foam-mockup rig.
+That calibration still needs a real reference frame from the actual demo setup, per the existing
+note in `helmet_zone_configs.py`.

@@ -36,7 +36,7 @@ from ultralytics import YOLO
 from zone import RestrictedZone
 from helmet_zone_configs import (
     CLASS_NAMES, NO_HELMET_CLASS_ID,
-    HIGH_RISK_ZONE_POLYGON, NORMAL_ZONE_POLYGON,
+    HIGH_RISK_ZONE_POLYGON_FRAC, NORMAL_ZONE_POLYGON_FRAC, scale_polygon,
     HIGH_RISK_DWELL_SECONDS, NORMAL_DWELL_SECONDS,
 )
 
@@ -87,14 +87,17 @@ def main():
 
     cap_probe = cv2.VideoCapture(source)
     fps = cap_probe.get(cv2.CAP_PROP_FPS) or ASSUMED_FPS
+    frame_w = int(cap_probe.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1280
+    frame_h = int(cap_probe.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 720
     cap_probe.release()
+    print(f"Camera reports {frame_w}x{frame_h} @ {fps:.1f}fps -- scaling zone polygons to this.")
 
     high_risk = RestrictedZone(
-        HIGH_RISK_ZONE_POLYGON,
+        scale_polygon(HIGH_RISK_ZONE_POLYGON_FRAC, frame_w, frame_h),
         dwell_frames=max(1, round(HIGH_RISK_DWELL_SECONDS * fps)),
     )
     normal = RestrictedZone(
-        NORMAL_ZONE_POLYGON,
+        scale_polygon(NORMAL_ZONE_POLYGON_FRAC, frame_w, frame_h),
         dwell_frames=max(1, round(NORMAL_DWELL_SECONDS * fps)),
     )
 
