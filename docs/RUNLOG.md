@@ -687,3 +687,32 @@ gain to justify it. `models/helmet_v1b_best.pt` was intentionally not copied int
 ("investigate why mAP50 is low" -> correct; "more epochs will fix it" -> tested and wrong) was
 checked against a real result instead of being left as an assumption. Worth remembering for the
 report: a plausible-sounding curve read is still a hypothesis until tested, not a conclusion.
+
+---
+
+## 2026-10-10 — ONNX export + INT8 quantization benchmarked on the helmet model
+
+Ran `src/export_helmet_model.py` (new): exports `models/helmet_v1_best.pt` to ONNX, dynamic-
+quantizes to INT8, benchmarks all three forms (PyTorch, ONNX fp32, ONNX INT8) on real CPU latency
+(5 warmup + 30 timed runs, laptop i7-13620H, same methodology as
+`docs/IMPLEMENTATION_REPORT.md`'s parking-project comparison). Writes
+`docs/train_helmet/export_benchmark.md`.
+
+**Results:**
+
+| Format | Size (MB) | ms/frame | FPS |
+|---|---|---|---|
+| PyTorch (.pt) | 6.23 | 53.3 | 18.8 |
+| ONNX (fp32) | 12.27 | 23.3 | 43.0 |
+| ONNX (INT8, dynamic) | 3.36 | 34.0 | 29.4 |
+
+**Same pattern as the parking project, on a second, independent model:** ONNX export is a clear
+win (+56.3% throughput vs PyTorch; parking project: +76%). INT8 quantization shrinks the model
+72.6% but is 46.1% *slower* than ONNX fp32 -- matching the parking project's own counter-intuitive
+finding almost exactly. Two different models, two different tasks, same result: dynamic INT8
+quantization doesn't help on a generic x86 CPU without matching hardware acceleration. This is now
+good evidence it's a real property of this CPU class, not a one-off fluke.
+
+**Decision: deploy ONNX fp32, not INT8.** Both comfortably clear the <300ms/frame target on this
+laptop CPU (23-53ms) -- not yet the Pi 4B specifically, that re-measurement is still Step 5/6's
+job, not assumed to transfer from this number either.

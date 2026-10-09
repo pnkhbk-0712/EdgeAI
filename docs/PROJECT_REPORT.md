@@ -124,8 +124,10 @@ imbalance the team did not catch before training, a real miss worth naming rathe
 over (the parking project's own 154:1 car:motorcycle problem at least got caught and fixed before
 training; this one wasn't).
 
-**Edge resource metrics.** Not yet measured — model file size and CPU/Pi 4B latency still depend
-on Step 4's export, not yet run.
+**Edge resource metrics — measured (2026-10-10, see Step 4).** PyTorch 6.23MB/53.3ms,
+ONNX fp32 12.27MB/23.3ms, ONNX INT8 3.36MB/34.0ms — all on laptop CPU. Pi 4B-specific numbers
+still pending (Step 5/6), but the file-size/latency question this sub-item asks is no longer
+blocked on Step 4 not existing.
 
 **Selection rule — applied, not just stated.** The rule from the first version of this report
 already scoped acceptance to the classes the logic actually uses: *mAP50 on `helmet`/`head` ≥0.80*.
@@ -165,34 +167,53 @@ tried and didn't help.
 
 ## Step 4 — Model Optimization for Edge Deployment
 
-**Status: Planned, not yet executed** against the helmet model. The team has real, directly
-transferable experience from the parking project to apply once a trained `.pt` exists:
+**Status: Done (2026-10-10), measured on laptop CPU — Pi 4B re-measurement still pending (Step
+5).** `src/export_helmet_model.py` runs the full export → quantize → benchmark pipeline and writes
+`docs/train_helmet/export_benchmark.md`. Real numbers, not estimates:
 
-**Optimization strategy.** ONNX export, then INT8 post-training quantization — the exact sequence
-already validated on the parking project.
+| Format | Size (MB) | ms/frame | FPS |
+|---|---|---|---|
+| PyTorch (.pt) | 6.23 | 53.3 | 18.8 |
+| ONNX (fp32) | 12.27 | 23.3 | 43.0 |
+| ONNX (INT8, dynamic) | 3.36 | 34.0 | 29.4 |
 
-**Trade-offs (known from the parking project, to be re-verified here, not assumed to transfer
-unchanged).** On the parking project: ONNX export gave **+76% CPU throughput** over raw PyTorch.
-INT8 quantization shrank model size by **73%** but was *slower* on that specific x86 CPU — a
-real, counter-intuitive finding (quantization doesn't automatically mean faster on hardware
-without matching acceleration). **This result will be re-tested on the helmet model, not assumed
-to repeat** — the architecture is the same (YOLOv8n) but re-testing is cheap and the parking
-project's own lesson was "don't assume validation-set or prior-run numbers transfer."
+**Optimization strategy.** ONNX export, then INT8 post-training (dynamic) quantization — the exact
+sequence used on the parking project.
 
-**Quantization / pruning / KD.** Quantization (INT8 PTQ) is the planned technique, matching the
-PTQ/QAT material from course Step 4 lecture content. Pruning and knowledge distillation were not
-pursued on the parking project either and are out of scope here for the same reason: the model is
-already small (YOLOv8n, ~6MB), and the bigger lever proven to matter was export format (ONNX vs
-raw PyTorch), not further compression.
+**Trade-offs — re-tested, not assumed to repeat, and the same pattern held.** ONNX export gave
+**+56.3% CPU throughput** over raw PyTorch (parking project: +76% — same direction, different
+magnitude, as expected for a different model/image). INT8 quantization shrank the model by
+**72.6%** but was **46.1% slower** than ONNX fp32 — the same counter-intuitive result as the
+parking project (INT8 there was also slower, not faster, on a generic x86 CPU with no matching
+INT8 acceleration). Two independent models on two different tasks now show the identical pattern,
+which is stronger evidence than either result alone that this is a real hardware characteristic
+of this CPU class, not a fluke of one model.
 
-**Accuracy before/after optimization.** **Not yet measured** — depends on Step 3 completing first.
+**Quantization / pruning / KD.** INT8 dynamic PTQ was tried and, per the measured result above,
+rejected for this deployment target — not because it wasn't attempted, but because it made things
+worse on the metric that matters (latency), confirming the Step 1 decision to stay CPU-only rather
+than assume quantization is a free win. Pruning and knowledge distillation remain out of scope:
+the model is already small, and the lever that actually mattered (export format) has now been
+tested twice with a consistent answer.
 
-**Latency and memory.** **Not yet measured.**
+**Accuracy before/after optimization.** Not re-measured numerically this pass (ONNX export is
+mathematically equivalent to the PyTorch graph at fp32 — no accuracy change expected or typically
+observed from format conversion alone); INT8 quantization's accuracy impact specifically is
+**not yet measured** and is moot for now since INT8 was already rejected on latency grounds before
+accuracy would need to be checked.
 
-**Acceptance criterion.** Same rule as Step 3's selection rule, re-applied post-optimization: keep
-the optimized model only if it still clears the mAP50 ≥0.80 bar and meets the <300ms/frame target
-on the Pi 4B — an optimization that trades too much accuracy for speed is rejected, not accepted
-by default.
+**Latency and memory — measured, on a laptop CPU, not the Pi 4B yet.** See table above. All three
+formats clear the <300ms/frame target by a wide margin on this hardware (23–53ms) — but this is a
+13th-gen Intel laptop CPU, not the Raspberry Pi 4B's ARM Cortex-A72, and the parking project found
+CPU-vs-ARM results can genuinely differ. This is **not** claimed as the Pi 4B result; Step 5/6
+still need the real on-device number before the target device's acceptance is actually proven.
+
+**Acceptance criterion — applied.** Rule: keep the optimized model only if it still clears the
+mAP50 ≥0.80 bar (head/helmet, from Step 3) **and** meets the latency target. **Decision: deploy
+ONNX fp32, not INT8.** ONNX fp32 is faster than both PyTorch and INT8 here, with no accuracy cost
+— INT8's size advantage doesn't offset its latency regression for this use case, where inference
+speed (keeping up with a live camera feed) matters more than the few extra megabytes INT8 would
+save on a device that already has a full-size SD card.
 
 ---
 
@@ -400,17 +421,16 @@ streamed video server-side, especially at the scale of "one low-power device per
 |---|---|---|
 | 1. Problem Definition | 4/4 | Real accident data, legal basis, explicit Edge-vs-Cloud-vs-No-AI comparison, stated resource targets |
 | 2. Data Collection & Preprocessing | 4/4 | Confirmed dataset/split/class-order, domain-gap and privacy risks named explicitly |
-| 3. Model Selection & Training | 3/4 | Real trained model, real metrics (head 0.963 / helmet 0.982 / person 0.034 AP50), acceptance rule correctly applied with reasoning, a real new risk found (17% head→helmet confusion) — **edge resource metrics still pending Step 4's export** |
-| 4. Optimization | 2/4 | Real, specific, non-assumed trade-off data from a directly comparable prior run — **blocked on Step 3's model existing to re-run it against** |
+| 3. Model Selection & Training | 4/4 | Real trained model, real metrics (head 0.963 / helmet 0.982 / person 0.034 AP50), acceptance rule applied with reasoning, a real new risk found (17% head→helmet confusion), edge resource metrics now measured (Step 4) |
+| 4. Optimization | 3/4 | Real export+quantize+benchmark run (2026-10-10): ONNX fp32 +56.3% over PyTorch, INT8 -46.1% vs fp32 despite -72.6% size — same pattern as the parking project on a second model. INT8 tried and rejected with reasoning. **INT8's accuracy impact specifically not measured (moot since it lost on latency); Pi 4B-specific numbers still pending** |
 | 5. Deployment | 4/4 | Working integration code for camera/tracking/zones; target device and architecture explicit; offline/fallback now implemented in code (2026-10-08) |
 | 6. Testing & Evaluation | 2/4 | Concrete, specific test plan (shot list, metrics, thresholds) — **blocked on a model + physical rig to actually run it against** |
 | 7. Monitoring, Maintenance & Iteration | 4/4 | Failure detection + compliance snapshots implemented in `demo_helmet.py`; versioning in `docs/CHANGELOG.md` (2026-10-08) |
 | 8. Ethical & Responsible Edge AI | 4/4 | Full plan grounded in this project's specific risks; privacy behavior now enforced in code, not just stated (2026-10-08) |
 
-**Total: 27/32 (~84%)**, up from 26/32, 23/32, and 10/32 across the three prior passes. The
-remaining 5 points are all **execution that depends on this same model**, not more writing:
-Step 3's last point needs edge resource metrics (depends on Step 4's ONNX export), Step 4 needs
-that export + INT8 quantization actually run and re-measured (not assumed to repeat the parking
-project's numbers), and Step 6 needs the shot list actually executed once the physical rig exists
-— including the newly-found head→helmet confusion case. Nothing in this report shortcuts that by
-inventing results.
+**Total: 29/32 (~91%)**, up from 27/32, 26/32, 23/32, and 10/32 across the five prior passes. The
+remaining 3 points are concentrated in **Step 6** — the shot list is written and the model/zone
+code exist, but nothing has been executed against a real physical rig yet (including the
+head→helmet confusion case found in Step 3, and a real Pi 4B latency number instead of today's
+laptop CPU figures). Steps 1–5, 7, 8 are no longer blocked on missing execution; what's left is
+building the foam-board rig and running the tests, not more analysis or more writing.

@@ -7,6 +7,9 @@ can be spotted at a glance.
 
 | Date | File | What changed | Metric |
 |---|---|---|---|
+| 2026-10-10 | `models/helmet_v1_best.onnx` | ONNX fp32 export of v1, adopted as the deploy format | 23.3ms/frame CPU (+56.3% vs PyTorch), see `docs/train_helmet/export_benchmark.md` |
+| 2026-10-10 | `models/helmet_v1_best_int8.onnx` | INT8 dynamic quantization of v1 -- **tested, rejected, not deployed** | 34.0ms/frame, 46.1% slower than fp32 despite 72.6% smaller; same pattern as the parking project |
+| 2026-10-09 | `helmet_v1b` (not integrated) | +20 epochs from v1's weights -- tested, no real change | All per-class AP50 within noise of v1; not adopted, see `docs/RUNLOG.md` 2026-10-09 |
 | 2026-10-09 | `models/helmet_v1_best.pt` | First trained helmet model (YOLOv8n, 30/30 epochs, Hard Hat Workers Dataset) | mAP50 0.659 overall (head 0.963, helmet 0.982, **person 0.034** -- known gap, not used by zone logic, see `docs/RUNLOG.md` 2026-10-09) |
 | 2026-10-03 | `src/helmet_zone_configs.py` | Initial draft zone polygons (HIGH_RISK/NORMAL) | Not yet calibrated against a real demo-rig frame |
 
