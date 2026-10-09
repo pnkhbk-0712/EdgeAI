@@ -649,3 +649,41 @@ unverified) before handing off a training command I had not run myself -- same l
 clone-path instruction earlier this project (2026-10-03): a Colab cell I write but can't execute
 locally gets the same "verify before trusting" treatment as any other claim, not a pass because
 it's "just a config change."
+
+---
+
+## 2026-10-09 — helmet_v1b (+20 epochs, corrected training command): no real improvement
+
+Ran the corrected "continue fine-tuning" command from `docs/HELMET_TRAINING.md` (load v1's
+`best.pt` as a pretrained start, 20 more epochs, explicit `data=`/`project=`/`name=`, new run
+folder `helmet_v1b` so v1 wasn't overwritten). This time it trained on the real dataset (confirmed:
+`data: data/helmet_roboflow/data.yaml` in `docs/train_helmet_v1b/args.yaml`, 21 rows in
+`results.csv` = 20 real epochs).
+
+**Result: no meaningful change from v1, within noise on every metric that matters:**
+
+| Metric | v1 (30 ep) | v1b (+20 ep) | Delta |
+|---|---|---|---|
+| head AP50 | 0.963 | 0.957 | -0.006 |
+| helmet AP50 | 0.982 | 0.977 | -0.005 |
+| person AP50 | 0.034 | 0.032 | -0.002 |
+| head->helmet confusion | 17% | 16% | -1pt |
+| mAP50 (all classes) | 0.659 | 0.655 | -0.004 |
+
+**The "results.png shows mAP50 still rising at epoch 30" theory from the previous entry was wrong
+in practice** -- stated here plainly as a negative result, not hidden. The model had effectively
+already converged; the visually-still-climbing curve was diminishing-returns noise, not real
+headroom. `results.csv`'s single-point precision metric did drop sharply (0.967 -> 0.623) between
+v1 and v1b, but this tracks a confidence-threshold operating point, not the PR-curve-integrated
+AP50 (flat) -- read as calibration drift from restarting the LR schedule (fine-tuning isn't a true
+resume, see the entry above), not a real quality regression.
+
+**Decision: keep `models/helmet_v1_best.pt` (the original 30-epoch run) as the model of record.**
+v1b is archived for evidence (`docs/train_helmet_v1b/`) but not promoted -- no measured benefit,
+and the precision/calibration shift is a plausible real risk for the live demo with no offsetting
+gain to justify it. `models/helmet_v1b_best.pt` was intentionally not copied into the project.
+
+**Process note:** this is the second time in two days a specific, reasoned prediction
+("investigate why mAP50 is low" -> correct; "more epochs will fix it" -> tested and wrong) was
+checked against a real result instead of being left as an assumption. Worth remembering for the
+report: a plausible-sounding curve read is still a hypothesis until tested, not a conclusion.
