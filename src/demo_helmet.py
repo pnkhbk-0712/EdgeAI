@@ -42,7 +42,10 @@ from helmet_zone_configs import (
 
 ROOT = Path(__file__).resolve().parent.parent
 EVENTS_OUT = ROOT / "data" / "samples" / "helmet_events.jsonl"
-DEFAULT_MODEL = ROOT / "models" / "helmet_v1_best.pt"
+# ONNX fp32, not the raw .pt -- Report Step 4 (2026-10-10) measured ONNX +56.3% faster than
+# PyTorch on CPU, with INT8 tried and rejected (slower despite smaller). Ultralytics' YOLO()
+# loads .onnx the same way as .pt, no other code here needs to change.
+DEFAULT_MODEL = ROOT / "models" / "helmet_v1_best.onnx"
 
 ASSUMED_FPS = 15.0  # webcam fps varies by device; used only to convert dwell seconds -> frames
                      # before the real cap.get(CAP_PROP_FPS) is known for the actual source.
@@ -95,7 +98,8 @@ def main():
         dwell_frames=max(1, round(NORMAL_DWELL_SECONDS * fps)),
     )
 
-    model = YOLO(str(model_path))
+    # task="detect" avoids an ONNX-only warning (ONNX export drops the task metadata .pt keeps)
+    model = YOLO(str(model_path), task="detect")
 
     print(PRIVACY_NOTE + str(EVENTS_OUT))
 
