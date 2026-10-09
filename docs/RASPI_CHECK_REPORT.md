@@ -46,8 +46,7 @@ thật lên, tách rủi ro "Pi quá yếu" ra khỏi rủi ro "model có vấn 
 - [x] Copy `src/demo.py` (hoặc bản rút gọn) lên Pi, chạy với model mặc định `yolov8n.pt`:
       [x] Chạy được [ ] Lỗi (ghi traceback nếu có): ________________________
 - [x] FPS đo được (in ra ở cuối `demo.py`, dòng "Wall-clock time"): 0.30fps
-      — so sánh với baseline laptop (18.4 FPS CPU, xem `docs/IMPLEMENTATION_REPORT.md`) chỉ để
-      biết Pi chậm hơn bao nhiêu, không kỳ vọng bằng laptop
+      — Hiệu năng inference YOLOv8n trên Raspberry Pi 4 đo được là 0.30 FPS, chậm hơn khoảng 61 lần so với baseline chạy trên CPU Laptop (18.4 FPS).
 - [x] Nhiệt độ Pi sau ~5 phút chạy liên tục (`vcgencmd measure_temp` nếu có): 43.4°C
       — nếu gần 80°C, ghi lại, đây là dấu hiệu cần tản nhiệt trước khi đo latency thật
 
