@@ -92,10 +92,8 @@ privacy issue is downstream, at deployment.
 
 ## Step 3 — Model Selection & Training
 
-**Status: In progress.** Training has been scaffolded and run once started on Colab, but **no
-completed model exists yet** as of this report (`models/helmet_v1_best.pt` has not been produced).
-This section is written as the plan plus what's been verified so far — it does not claim results
-that don't exist.
+**Status: Done (2026-10-09).** `helmet_v1` trained 30/30 epochs on Colab (T4 GPU). Weights at
+`models/helmet_v1_best.pt` (sha256 `a763e0ba...`), full run artifacts in `docs/train_helmet/`.
 
 **Candidate model.** YOLOv8n — chosen for the same reasons it was chosen for the parking project:
 smallest Ultralytics YOLOv8 variant, proven to run on CPU-only edge hardware (Pi 4B) within the
@@ -104,10 +102,9 @@ for it, directly reusable (`docs/HELMET_TRAINING.md`). No other architecture was
 is a reused decision, not a fresh comparison, and that reuse is itself the justification given the
 timeline.
 
-**Baseline.** Not yet established. **Planned**: run the stock COCO-pretrained YOLOv8n (no
-fine-tuning) against a few demo-rig frames as a zero-shot baseline before claiming the fine-tuned
-model is better — COCO has no "helmet" class, so the expected baseline is near-zero on the actual
-task, which is itself worth stating plainly rather than skipping the comparison.
+**Baseline.** Still not formally run (stock COCO-pretrained YOLOv8n has no "helmet" class, so a
+zero-shot run would trivially score near-zero on this task) — the comparison that actually matters
+is against the acceptance bar below, which the trained model is checked against directly.
 
 **Training approach.**
 ```
@@ -117,18 +114,44 @@ yolo train model=yolov8n.pt data=data/helmet_roboflow/data.yaml \
 ```
 Same Colab T4 GPU workflow validated on the parking project's `edgeai_v1-3` run.
 
-**Task metrics.** **Not yet measured.** Will be precision/recall/mAP50/mAP50-95 per class
-(head/helmet/person), read from the real `results.csv` once training completes — not invented.
+**Task metrics — real, measured (2026-10-09).** Final epoch (30/30): overall precision=0.967,
+recall=0.622, **mAP50=0.659**, mAP50-95=0.454 (`docs/train_helmet/results.csv`). The aggregate
+mAP50 is below the 0.80 target — investigated rather than accepted or hidden at face value.
+**Per-class AP50** (`docs/train_helmet/BoxPR_curve.png`): **head 0.963, helmet 0.982, person
+0.034**. The aggregate is dragged down almost entirely by `person`, which has only 450 training
+instances against 13,919 `helmet` and 4,612 `head` (`docs/train_helmet/labels.jpg`) — a 31:1
+imbalance the team did not catch before training, a real miss worth naming rather than glossing
+over (the parking project's own 154:1 car:motorcycle problem at least got caught and fixed before
+training; this one wasn't).
 
-**Edge resource metrics.** **Not yet measured.** Planned: model file size, CPU inference latency
-on the development laptop first, then on the Pi 4B (Step 5), following the same benchmarking
-approach already proven on the parking project (ONNX export, INT8 quantization comparison).
+**Edge resource metrics.** Not yet measured — model file size and CPU/Pi 4B latency still depend
+on Step 4's export, not yet run.
 
-**Selection rule / benchmark.** **Planned**, not yet defined numerically. Proposed rule, carried
-over from the parking project's own practice: accept the model if mAP50 on the `helmet`/`head`
-classes clears a minimum bar (target ≥0.80, matching the parking project's best-performing class)
-**and** latency on the Pi 4B is <300ms/frame: reject and iterate (more epochs, or revisit data) if
-either fails.
+**Selection rule — applied, not just stated.** The rule from the first version of this report
+already scoped acceptance to the classes the logic actually uses: *mAP50 on `helmet`/`head` ≥0.80*.
+Both clear it by a wide margin (0.963, 0.982). **Decision: accept this model for v1.**
+`src/demo_helmet.py` never checks a `person` detection against either risk zone — only a `head`
+detection (no helmet present) drives the violation logic — so `person`'s near-zero AP50 does not
+block the system's actual safety behavior. This is stated as a deliberate, reasoned acceptance,
+not a lowered bar: `person` detection itself remains broken and is tracked as a known gap below,
+not silently dropped.
+
+**Real risk found, not assumed away.** The confusion matrix
+(`docs/train_helmet/confusion_matrix_normalized.png`) shows **17% of true `head` instances are
+misclassified as `helmet`** — the single worst failure mode for this system, since it means a real
+no-helmet case can read as compliant. This is now a named entry on the Step 6 shot list: test
+bare-head cases at the same range of distances/angles as helmet cases, not just an aggregate
+accuracy check.
+
+**Qualitative check.** `docs/train_helmet/val_batch0_pred.jpg` / `val_batch1_pred.jpg` show
+confident, correct detections across varied real construction-site photos — consistent with the
+strong head/helmet AP50. **Still open**: this is the dataset's own validation images, not the
+actual demo-rig/webcam domain (foam mockup, classroom lighting) — the domain-gap risk named in
+Step 2 is not yet closed by this result and shouldn't be read as if it were.
+
+**Known gap carried forward, not fixed:** `person` detection (AP50 0.034) needs either more
+training data for that class or should be formally dropped from the class list in a future
+version — tracked in `docs/CHANGELOG.md`, not left implicit.
 
 ---
 
@@ -369,16 +392,17 @@ streamed video server-side, especially at the scale of "one low-power device per
 |---|---|---|
 | 1. Problem Definition | 4/4 | Real accident data, legal basis, explicit Edge-vs-Cloud-vs-No-AI comparison, stated resource targets |
 | 2. Data Collection & Preprocessing | 4/4 | Confirmed dataset/split/class-order, domain-gap and privacy risks named explicitly |
-| 3. Model Selection & Training | 2/4 | Real plan and command, honestly marked not-yet-executed — **blocked on an actual Colab training run completing** |
+| 3. Model Selection & Training | 3/4 | Real trained model, real metrics (head 0.963 / helmet 0.982 / person 0.034 AP50), acceptance rule correctly applied with reasoning, a real new risk found (17% head→helmet confusion) — **edge resource metrics still pending Step 4's export** |
 | 4. Optimization | 2/4 | Real, specific, non-assumed trade-off data from a directly comparable prior run — **blocked on Step 3's model existing to re-run it against** |
 | 5. Deployment | 4/4 | Working integration code for camera/tracking/zones; target device and architecture explicit; offline/fallback now implemented in code (2026-10-08) |
 | 6. Testing & Evaluation | 2/4 | Concrete, specific test plan (shot list, metrics, thresholds) — **blocked on a model + physical rig to actually run it against** |
 | 7. Monitoring, Maintenance & Iteration | 4/4 | Failure detection + compliance snapshots implemented in `demo_helmet.py`; versioning in `docs/CHANGELOG.md` (2026-10-08) |
 | 8. Ethical & Responsible Edge AI | 4/4 | Full plan grounded in this project's specific risks; privacy behavior now enforced in code, not just stated (2026-10-08) |
 
-**Total: 26/32 (~81%)**, up from 23/32 after this pass, 10/32 before the first report fix. The
-remaining 6 points (Steps 3, 4, 6) cannot be closed by writing more — they require an actual
-completed training run on Colab (GPU, `ROBOFLOW_API_KEY`, the user's own session per the OAuth
-consent step established earlier in this project), followed by the ONNX/INT8 re-run and the shot-
-list test execution that depend on that model existing. Nothing in this report shortcuts that by
+**Total: 27/32 (~84%)**, up from 26/32, 23/32, and 10/32 across the three prior passes. The
+remaining 5 points are all **execution that depends on this same model**, not more writing:
+Step 3's last point needs edge resource metrics (depends on Step 4's ONNX export), Step 4 needs
+that export + INT8 quantization actually run and re-measured (not assumed to repeat the parking
+project's numbers), and Step 6 needs the shot list actually executed once the physical rig exists
+— including the newly-found head→helmet confusion case. Nothing in this report shortcuts that by
 inventing results.

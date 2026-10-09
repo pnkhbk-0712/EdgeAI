@@ -7,7 +7,7 @@ can be spotted at a glance.
 
 | Date | File | What changed | Metric |
 |---|---|---|---|
-| (pending) | `models/helmet_v1_best.pt` | First trained helmet model (YOLOv8n, 30 epochs, Hard Hat Workers Dataset) | Not yet trained -- see `docs/PROJECT_REPORT.md` Step 3 |
+| 2026-10-09 | `models/helmet_v1_best.pt` | First trained helmet model (YOLOv8n, 30/30 epochs, Hard Hat Workers Dataset) | mAP50 0.659 overall (head 0.963, helmet 0.982, **person 0.034** -- known gap, not used by zone logic, see `docs/RUNLOG.md` 2026-10-09) |
 | 2026-10-03 | `src/helmet_zone_configs.py` | Initial draft zone polygons (HIGH_RISK/NORMAL) | Not yet calibrated against a real demo-rig frame |
 
 **Rule:** a new model file is never swapped into `demo_helmet.py --model` for an actual
