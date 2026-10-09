@@ -13,6 +13,15 @@ failure flag are both written to EVENTS_OUT alongside violation events, so a rev
 file after a run can distinguish "actually compliant" from "camera/model stopped working" --
 those look identical in a system that only logs violations.
 
+Per-track class smoothing (2026-10-11, from a real webcam test): moving the head causes motion
+blur, which made the model flip-flop frame-to-frame between "head" (no helmet) and "helmet" on
+the exact same real head -- the live manifestation of the 17% head-vs-helmet confusion found in
+the confusion matrix (docs/RUNLOG.md 2026-10-09). A single frame's classification is no longer
+trusted directly; each track's last CLASS_SMOOTHING_WINDOW frames vote, and the majority decides
+whether that track counts as "no helmet" this frame -- so a momentary blur-induced misread doesn't
+flip a compliant person into a violation (or hide a real one) for one frame, without hiding the
+raw per-frame confidence from the log.
+
 Privacy (Report Step 8): no frame is ever written to disk and no identity is attached to a
 track id -- ids come from YOLO's tracker, reset every time this script starts, and are never
 linked to a name. Only zone/timestamp/confidence numbers are logged. See the printed notice at
@@ -27,7 +36,7 @@ Usage:
 import argparse
 import json
 import time
-from collections import deque
+from collections import defaultdict, deque
 from pathlib import Path
 
 import cv2
@@ -55,6 +64,12 @@ COMPLIANCE_WINDOW_SEC = 30  # rolling window for the live "% compliant" readout
 # Report Step 7 -- Monitoring, Maintenance & Iteration
 FAILURE_DETECTION_SEC = 60.0        # no detections of ANY kind this long -> flag, don't stay silent
 COMPLIANCE_SNAPSHOT_INTERVAL_SEC = 30.0  # persist a compliance snapshot this often, not just on-screen
+
+# Per-track head/helmet class smoothing (2026-10-11) -- majority vote over this many of a track's
+# most recent frames, not the single current frame. 5 frames is short on purpose: this is a live
+# demo with 1-3s dwell thresholds, so the smoothing window needs to stay well under that to not
+# itself delay a real alert.
+CLASS_SMOOTHING_WINDOW = 5
 
 PRIVACY_NOTE = (
     "Privacy note: no video frame is saved to disk; track ids reset every run and are never "
@@ -111,6 +126,8 @@ def main():
     t_start = time.time()
     # rolling (timestamp, is_no_helmet) samples for the live compliance-rate readout
     compliance_window = deque()
+    # per-track_id rolling buffer of raw is_no_helmet reads, for the majority-vote smoothing above
+    track_class_history = defaultdict(lambda: deque(maxlen=CLASS_SMOOTHING_WINDOW))
     last_detection_time = time.time()
     last_snapshot_time = time.time()
     failure_flagged = False  # avoid re-flagging every frame while still silent
@@ -136,7 +153,7 @@ def main():
                 x1, y1, x2, y2 = box
                 cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
                 class_name = CLASS_NAMES.get(int(cls_id), str(cls_id))
-                is_no_helmet = int(cls_id) == NO_HELMET_CLASS_ID
+                raw_is_no_helmet = int(cls_id) == NO_HELMET_CLASS_ID
 
                 now = time.time()
                 if class_name == "person":
@@ -144,36 +161,41 @@ def main():
                     # class (no helmet detected on that head) is what we check against zones.
                     color = (255, 180, 0)
                     label = f"person #{track_id} {conf:.2f}"
-                elif not is_no_helmet:
-                    color = (0, 200, 0)
-                    label = f"helmet #{track_id} {conf:.2f}"
                 else:
-                    in_high, high_violation, high_new = high_risk.update(int(track_id), cx, cy)
-                    in_normal, normal_violation, normal_new = normal.update(int(track_id), cx, cy)
-                    is_violation = high_violation or normal_violation
-                    color = (0, 0, 255) if is_violation else (0, 165, 255)
-                    label = f"NO HELMET #{track_id} {conf:.2f}"
-                    if high_violation:
-                        label += " [HIGH-RISK ALERT]"
-                    elif normal_violation:
-                        label += " [logged]"
+                    # Smoothed, not raw: majority vote over this track's last few frames so one
+                    # blurry frame doesn't flip the decision (module docstring, 2026-10-11).
+                    history = track_class_history[int(track_id)]
+                    history.append(raw_is_no_helmet)
+                    is_no_helmet = sum(history) >= len(history) / 2  # ties lean "no helmet" -- safer
 
-                    compliance_window.append((now, True))
+                    if not is_no_helmet:
+                        color = (0, 200, 0)
+                        label = f"helmet #{track_id} {conf:.2f}"
+                        compliance_window.append((now, False))
+                    else:
+                        in_high, high_violation, high_new = high_risk.update(int(track_id), cx, cy)
+                        in_normal, normal_violation, normal_new = normal.update(int(track_id), cx, cy)
+                        is_violation = high_violation or normal_violation
+                        color = (0, 0, 255) if is_violation else (0, 165, 255)
+                        label = f"NO HELMET #{track_id} {conf:.2f}"
+                        if high_violation:
+                            label += " [HIGH-RISK ALERT]"
+                        elif normal_violation:
+                            label += " [logged]"
 
-                    for zone_name, newly in (("high_risk", high_new), ("normal", normal_new)):
-                        if newly:
-                            event = {
-                                "event": "no_helmet_violation",
-                                "zone": zone_name,
-                                "track_id": int(track_id),
-                                "confidence": round(float(conf), 2),
-                                "timestamp": frame_timestamp(frame_idx, fps),
-                            }
-                            events.append(event)
-                            print("VIOLATION:", json.dumps(event))
+                        compliance_window.append((now, True))
 
-                if class_name == "helmet":
-                    compliance_window.append((now, False))
+                        for zone_name, newly in (("high_risk", high_new), ("normal", normal_new)):
+                            if newly:
+                                event = {
+                                    "event": "no_helmet_violation",
+                                    "zone": zone_name,
+                                    "track_id": int(track_id),
+                                    "confidence": round(float(conf), 2),
+                                    "timestamp": frame_timestamp(frame_idx, fps),
+                                }
+                                events.append(event)
+                                print("VIOLATION:", json.dumps(event))
 
                 cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
                 cv2.putText(frame, label, (int(x1), max(0, int(y1) - 8)),

@@ -779,3 +779,35 @@ accelerator the team previously and deliberately deferred buying (parking projec
 notes: "don't buy this first... prove the Pi genuinely can't hit >=5 FPS before spending on this")
 -- 0.30 FPS is well under even that 5 FPS bar, so that condition may now be met, pending the two
 checks above ruling out the power-supply confound first.
+
+---
+
+## 2026-10-11 — Live webcam confirms the 17% head/helmet confusion; added smoothing fix
+
+User moved their head during the webcam test and saw the model flicker between "helmet" and
+"NO HELMET" on the exact same real head within the same second -- confidence dropped to 0.44 on
+the misread frame (vs. 0.77-0.83 standing still). This is the live, reproduced version of the 17%
+head->helmet confusion already found in the confusion matrix (2026-10-09) -- motion blur was the
+missing piece explaining *when* it happens, not just *that* it happens.
+
+**Real risk this creates:** `zone.py`'s dwell counter only accumulates on frames classified as
+"head" -- a flickering classification could meaningfully delay, or in the worst case prevent,
+reaching the dwell threshold for a real violation, which is exactly backwards for a safety system
+(more motion = more likely to be a real moving/rushing worker, not less deserving of a correct
+flag).
+
+**Fix: per-track majority-vote class smoothing**, added to `src/demo_helmet.py`. Each track's last
+`CLASS_SMOOTHING_WINDOW=5` frames vote on "no helmet or not"; the majority decides, not the single
+current frame (ties lean toward "no helmet" -- the safer direction to err on). 5 frames is
+deliberately short so the smoothing itself doesn't meaningfully delay the 1-3s dwell thresholds.
+
+**Verified in isolation** (not just assumed) with three synthetic sequences before trusting it:
+- A single blurry misread surrounded by consistent "no helmet" reads: smoothed out, stays flagged
+  the whole time (no false recovery).
+- A single blurry misread surrounded by consistent "helmet" reads: smoothed out, stays compliant
+  (no false violation).
+- A genuine state change (helmet put on mid-sequence): still correctly reflected within the
+  5-frame window, just with the expected small lag.
+
+Raw per-frame confidence is still shown in the label and logged -- smoothing changes which
+*decision* the system acts on, not what gets recorded.
