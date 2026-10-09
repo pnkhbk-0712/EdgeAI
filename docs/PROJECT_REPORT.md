@@ -153,6 +153,14 @@ Step 2 is not yet closed by this result and shouldn't be read as if it were.
 training data for that class or should be formally dropped from the class list in a future
 version — tracked in `docs/CHANGELOG.md`, not left implicit.
 
+**Tested and rejected: training longer.** `results.png` showed mAP50 still climbing at epoch 30,
+so a follow-up run (`helmet_v1b`, 20 more epochs from v1's weights) tried extending it — see
+`docs/RUNLOG.md` 2026-10-09. Result: no real change (every per-class AP50 moved by <1 point,
+head→helmet confusion 17%→16%), and the single-point precision metric got noticeably less stable.
+**`models/helmet_v1_best.pt` (the original 30-epoch run) remains the model of record** — stated
+here so the report doesn't imply more training is still an open lever when it's already been
+tried and didn't help.
+
 ---
 
 ## Step 4 — Model Optimization for Edge Deployment
