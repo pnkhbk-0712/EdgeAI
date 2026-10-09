@@ -811,3 +811,55 @@ deliberately short so the smoothing itself doesn't meaningfully delay the 1-3s d
 
 Raw per-frame confidence is still shown in the label and logged -- smoothing changes which
 *decision* the system acts on, not what gets recorded.
+
+---
+
+## 2026-10-11 — Pi 4B latency plan: re-test ONNX/INT8/resolution on-device before buying anything
+
+Thought through how to actually close the 0.30 FPS gap found in Hung's Pi check, instead of
+jumping straight to buying hardware. Reasoning:
+
+- A 61x laptop-vs-Pi gap is too large to be fully explained by the known power-supply issue
+  (5V/2A vs the recommended 5V/3A, RASPI_CHECK_REPORT.md) -- real-world Pi4-vs-modern-laptop gaps
+  for this kind of workload are usually cited around 10-20x, not 61x. Fixing the PSU is still
+  worth doing first (free, rules out a real confound), but shouldn't be expected to close the
+  whole gap alone.
+- The 0.30 FPS number was measured on stock, un-optimized `yolov8n.pt` -- not yet the ONNX export
+  that Step 4 already found +56.3% faster on the laptop.
+- INT8 was rejected on the laptop's x86 CPU (Step 4, 2026-10-10) -- but the old parking project's
+  own report explicitly flagged ARM/Jetson INT8 behavior as unverified and likely different from
+  x86. Never actually tested on ARM before now.
+- Reduced input resolution (imgsz) is a cheap, no-retraining lever that was also never tried.
+
+**Decision: test the cheap software levers on the real Pi before considering the Coral USB
+accelerator.** Buying hardware this late in the course timeline, with the added complexity of a
+TFLite/Edge-TPU conversion pipeline, is a real cost/risk that should only be paid if software
+options are confirmed insufficient -- not assumed insufficient.
+
+Wrote two scripts for Hoang/Hung to run:
+- `src/export_helmet_sizes.py` (laptop side) -- exports fixed-size ONNX variants at imgsz 416 and
+  320 alongside the existing 640 export.
+- `src/benchmark_pi.py` (Pi side) -- benchmarks ONNX fp32 @ 640, INT8 @ 640, and fp32 @ 416/320,
+  real latency on the Pi itself, not assumed from the laptop numbers.
+
+**Real bug caught and fixed while building these, before handing them off:** the first version of
+`export_helmet_sizes.py` exported each size straight from `helmet_v1_best.pt` in a loop --
+Ultralytics' `.export()` always derives its output filename from the model's own stem
+(`helmet_v1_best.onnx`) regardless of `imgsz`, so each loop iteration **silently overwrote the
+real, actively-deployed 640 ONNX file** before my own rename-after step could move it out of the
+way. Running the script once actually deleted `models/helmet_v1_best.onnx` -- caught immediately
+by re-testing the live demo rather than assuming the export had gone cleanly, restored the file by
+re-exporting from the untouched `.pt` (verified via sha256 and a real predict() call that it's
+functionally identical), then fixed the root cause: each size now exports from a uniquely-named
+temporary copy of the `.pt` so Ultralytics can never derive a colliding output filename again.
+Verified the fix with a sha256 checksum of `helmet_v1_best.onnx` taken before and after a full
+re-run of the fixed script -- byte-identical, confirmed untouched.
+
+**Real, not just theoretical, accuracy note already visible on the laptop:** the 640 model found
+16 boxes on the benchmark image, 416 found 5, 320 found **0**. Resolution reduction is a real
+speed/accuracy trade, not a free win -- flagged directly in `benchmark_pi.py`'s own output so
+whoever runs it on the Pi doesn't just chase the fastest number.
+
+**Still needed:** the team actually running `benchmark_pi.py` on the real Pi (after fixing the
+power supply) and reporting the real numbers back -- nothing in this entry claims a Pi result that
+hasn't been measured yet.
