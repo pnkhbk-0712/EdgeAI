@@ -63,3 +63,47 @@ After downloading, same integration steps used for edgeai_v2 on the old project:
 3. Sanity-check against a few real webcam frames before trusting it for the live demo, same
    "verify before trusting" habit used throughout -- don't assume validation-set mAP transfers
    directly to the classroom's actual lighting/camera/distance.
+
+## Resuming training (2026-10-09)
+
+`helmet_v1`'s first 30-epoch run finished with mAP50=0.659 overall (head 0.963 / helmet 0.982 are
+fine; the weak aggregate traces to the `person` class, see `docs/RUNLOG.md` 2026-10-09 and
+`docs/PROJECT_REPORT.md` Step 3 -- `person` isn't used by the zone-violation logic, so it isn't
+the reason to resume). The reason to resume: **`results.png` shows mAP50/mAP50-95 still rising and
+val loss still falling at epoch 30 -- the run was stopped before it converged, not after.** More
+epochs on the exact same data is the correct, cheap lever here -- not more data, not a from-scratch
+retrain.
+
+```python
+# 1. Mount Drive (fresh runtime each session -- remount if needed)
+from google.colab import drive
+drive.mount('/content/drive')
+```
+
+```python
+# 2. Install ultralytics (resume only needs this -- no repo clone, no re-download required,
+# the checkpoint and dataset reference already live on Drive from the first run)
+!pip install -q ultralytics
+```
+
+```python
+# 3. Resume from the last checkpoint, extended to 50 total epochs (20 more than the first run).
+# NOTE: resume=True alone would stop immediately, since the checkpoint already reached the
+# original epochs=30 target -- passing a larger `epochs` here is what tells Ultralytics to keep
+# going instead of treating the run as already complete.
+from ultralytics import YOLO
+model = YOLO("/content/drive/MyDrive/EdgeAI_runs/helmet_v1/weights/last.pt")
+results = model.train(resume=True, epochs=50)
+```
+
+```python
+# 4. Download the updated result
+from google.colab import files
+files.download('/content/drive/MyDrive/EdgeAI_runs/helmet_v1/weights/best.pt')
+```
+
+Same integration steps as above once downloaded -- overwrite `models/helmet_v1_best.pt` (keep the
+old one momentarily to compare, per `docs/CHANGELOG.md`'s rollback rule, don't just clobber it),
+refresh `docs/train_helmet/` with the new `results.csv`/`results.png`/confusion matrices, and
+re-check the per-class AP50 and the head/helmet confusion rate specifically against the first
+run's numbers (head 0.963, helmet 0.982, 17% head->helmet confusion) before updating the report.
