@@ -10,18 +10,19 @@ chạy đúng, không phải debug phần cứng lẫn với debug kết quả t
 ## Bước 1 — Thông tin phần cứng
 
 - [x] Model board: Raspberry Pi 4 Model B (4GB RAM) 
-- [x] RAM thực tế (chạy `free -h`, ghi lại dòng `Mem:`): total 3.7Gi / used 429Mi / free 2.7Gi /                / shared 40Mi / buff-cache 693Mi / available 3.3Gi
+- [x] RAM thực tế (chạy `free -h`, ghi lại dòng `Mem:`): total 3.7Gi / used 429Mi / free 2.7Gi / shared 40Mi /
+      buff-cache 693Mi / available 3.3Gi
 - [x] Dung lượng thẻ nhớ / còn trống (`df -h`): Tổng 28G (/dev/mmcblk0p2), đã dùng 6.7G, còn trống 20G
-- [x] Nguồn đang dùng (V/A ghi trên adapter): 5V/3A — nếu không phải đúng
+- [x] Nguồn đang dùng (V/A ghi trên adapter): 5V/2A ( có cảnh báo nguồn yếu trên hệ thống) — nếu không phải đúng
       loại khuyến nghị (5V/3A cho Pi 4B, 27W USB-C PD cho Pi 5), ghi rõ, vì nguồn yếu gây
       brownout trông giống lỗi model chứ không phải lỗi nguồn
 
 ## Bước 2 — Cài hệ điều hành + kết nối
 
 - [x] Đã flash Raspberry Pi OS (64-bit): OS: Debian GNU/Linux 13 (trixie) / Ngày flash: 23/09/2025
-- [x] SSH vào được từ laptop qua WiFi: Có
+- [x] SSH vào được từ laptop qua WiFi: [x] Có [ ] Không
 - [x] `python3 --version` trên Pi: Python 3.13.5
-- [x] Cài được `opencv-python` + `ultralytics` chưa: Có
+- [x] Cài được `opencv-python` + `ultralytics` chưa: [x] Có [ ] Không
 
 ## Bước 3 — Camera sanity check (chưa đụng tới model)
 
@@ -32,9 +33,9 @@ YOLO vào:
 python3 -c "import cv2; cv2.imwrite('t.jpg', cv2.VideoCapture(0).read()[1])"
 ```
 
-- [ ] Lệnh chạy không lỗi: ⬜ Có ⬜ Không
+- [ ] Lệnh chạy không lỗi:  [ ] Có [ ] Không
 - [ ] File `t.jpg` mở ra thấy đúng hình thật (không đen, không lỗi màu): ⬜ Có ⬜ Không
-- [ ] Loại camera đang dùng: ⬜ USB webcam ⬜ Pi Camera Module — nếu Pi Camera, xác nhận đã
+- [ ] Loại camera đang dùng: [ ] USB webcam [ ] Pi Camera Module — nếu Pi Camera, xác nhận đã
       bật `camera` trong `raspi-config` hoặc `libcamera` (Pi 5 dùng stack camera khác Pi 4B)
 
 ## Bước 4 — Chạy thử pipeline có sẵn (model tạm, chưa cần model đã train)
@@ -42,19 +43,19 @@ python3 -c "import cv2; cv2.imwrite('t.jpg', cv2.VideoCapture(0).read()[1])"
 Mục đích: xác nhận Pi đủ khả năng chạy được `ultralytics` + `cv2` cùng lúc trước khi đưa model
 thật lên, tách rủi ro "Pi quá yếu" ra khỏi rủi ro "model có vấn đề".
 
-- [ ] Copy `src/demo.py` (hoặc bản rút gọn) lên Pi, chạy với model mặc định `yolov8n.pt`:
-      ⬜ Chạy được ⬜ Lỗi (ghi traceback nếu có): ________________________
-- [ ] FPS đo được (in ra ở cuối `demo.py`, dòng "Wall-clock time"): ________________________
+- [x] Copy `src/demo.py` (hoặc bản rút gọn) lên Pi, chạy với model mặc định `yolov8n.pt`:
+      [x] Chạy được [ ] Lỗi (ghi traceback nếu có): ________________________
+- [x] FPS đo được (in ra ở cuối `demo.py`, dòng "Wall-clock time"): 0.30fps
       — so sánh với baseline laptop (18.4 FPS CPU, xem `docs/IMPLEMENTATION_REPORT.md`) chỉ để
       biết Pi chậm hơn bao nhiêu, không kỳ vọng bằng laptop
-- [ ] Nhiệt độ Pi sau ~5 phút chạy liên tục (`vcgencmd measure_temp` nếu có): ________________________
+- [x] Nhiệt độ Pi sau ~5 phút chạy liên tục (`vcgencmd measure_temp` nếu có): 43.4°C
       — nếu gần 80°C, ghi lại, đây là dấu hiệu cần tản nhiệt trước khi đo latency thật
 
 ## Bước 5 — Kết luận sẵn sàng hay chưa
 
-- [ ] Pi đã sẵn sàng để nhận model thật + chạy bộ test case Sec. VIII: ⬜ Sẵn sàng ⬜ Chưa
-- Nếu chưa, việc cần làm tiếp theo là gì: ________________________
-- Rủi ro/lo ngại đã thấy (VD: nóng máy, RAM thấp, camera không ổn định): ________________________
+- [x] Pi đã sẵn sàng để nhận model thật + chạy bộ test case Sec. VIII: [ ] Sẵn sàng [x] Chưa
+- Nếu chưa, việc cần làm tiếp theo là gì: Cần trang bị camera để test cam cho bước 3. Cần kiếm nguồn chuẩn để cấp đủ điện cho Pi
+- Rủi ro/lo ngại đã thấy (VD: nóng máy, RAM thấp, camera không ổn định): fps thấp, nguồn cấp không đủ, RAM thấp.
 
 ---
 
