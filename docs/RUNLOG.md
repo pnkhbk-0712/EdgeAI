@@ -613,3 +613,39 @@ risk already flagged in Step 2 -- validation-set performance on the Hard Hat Wor
 images is not the same claim as "works on this demo's camera."
 
 **Not yet done:** ONNX export + INT8 quantization (Step 4), testing on the Pi 4B (Step 5/6).
+
+---
+
+## 2026-10-09 — My mistake: `resume=True` on a completed run silently trained garbage
+
+Documented the previous entry's "resume training" plan with `model.train(resume=True, epochs=50)`
+-- this was wrong, and it's on me, not caught before handing it to the team to run.
+
+**What happened:** Ultralytics strips a checkpoint's optimizer/epoch state once a run finishes
+*normally*. `helmet_v1`'s 30-epoch run completed cleanly, so its `last.pt`/`best.pt` were already
+stripped -- `resume` only works on an *interrupted* run's checkpoint. Pointing `resume=True` at a
+completed run's checkpoint printed a warning (`not a resumable training checkpoint ... Starting
+new training instead`) and silently fell back to a fresh `model.train()` call. Because that call
+never specified `data=`, it defaulted to Ultralytics' `coco8.yaml` (a 4-image smoke-test set) and
+trained a throwaway 80-class COCO model for 50 "epochs" (~29 seconds total, since coco8 is tiny)
+into `/content/runs/detect/train/` -- not the real dataset, not the real class set, not saved
+anywhere the project uses.
+
+**No real damage:** the actual `helmet_v1` files on Drive were never touched by this (confirmed --
+the `best.pt` downloaded afterward is byte-identical, same sha256, to the original 30-epoch
+model), and the wasted Colab time was under a minute. Caught because the downloaded file's
+checksum and the synced `results.csv` row count (still 31 lines, not 51) didn't match what a real
+extended run should have produced -- the same "verify before trusting a result" habit that's
+caught every other real bug on this project, including the user's own first two Colab bugs.
+
+**Fix:** `docs/HELMET_TRAINING.md` corrected -- there is no resume-a-completed-run path in
+Ultralytics. The real way to add more epochs after a run has finished is to load its `best.pt` as
+a pretrained starting point for a brand-new, fully-specified `model.train()` call (explicit
+`data=`/`project=`/`name=`, new run folder `helmet_v1b` so the original isn't overwritten) --
+not a true LR-schedule-continuous resume, but the standard fallback when resume isn't available.
+
+**Process note:** I should have verified this Ultralytics behavior (or at least flagged it as
+unverified) before handing off a training command I had not run myself -- same lesson as the wrong
+clone-path instruction earlier this project (2026-10-03): a Colab cell I write but can't execute
+locally gets the same "verify before trusting" treatment as any other claim, not a pass because
+it's "just a config change."

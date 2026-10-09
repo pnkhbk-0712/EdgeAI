@@ -64,15 +64,31 @@ After downloading, same integration steps used for edgeai_v2 on the old project:
    "verify before trusting" habit used throughout -- don't assume validation-set mAP transfers
    directly to the classroom's actual lighting/camera/distance.
 
-## Resuming training (2026-10-09)
+## Training further (2026-10-09, corrected same day -- see the warning below)
 
 `helmet_v1`'s first 30-epoch run finished with mAP50=0.659 overall (head 0.963 / helmet 0.982 are
 fine; the weak aggregate traces to the `person` class, see `docs/RUNLOG.md` 2026-10-09 and
 `docs/PROJECT_REPORT.md` Step 3 -- `person` isn't used by the zone-violation logic, so it isn't
-the reason to resume). The reason to resume: **`results.png` shows mAP50/mAP50-95 still rising and
-val loss still falling at epoch 30 -- the run was stopped before it converged, not after.** More
-epochs on the exact same data is the correct, cheap lever here -- not more data, not a from-scratch
+the reason to train further). The reason to add epochs: **`results.png` shows mAP50/mAP50-95
+still rising and val loss still falling at epoch 30 -- the run was stopped before it converged,
+not after.** More epochs is the correct, cheap lever here -- not more data, not a from-scratch
 retrain.
+
+**`resume=True` does NOT work here -- tried it, it silently trained garbage instead.** Ultralytics
+strips the optimizer/epoch state from `last.pt`/`best.pt` once a run finishes *normally* (ours
+did, all 30/30 epochs) -- `resume` only works on a checkpoint from a run that was *interrupted*.
+Pointing `resume=True` at a completed run's checkpoint prints a warning
+(`not a resumable training checkpoint ... Starting new training instead`) and silently falls back
+to a **brand-new** `model.train()` call -- which, because no `data=` was given, defaulted to
+`coco8.yaml` (Ultralytics' 4-image smoke-test set) and trained a throwaway 80-class COCO model for
+50 epochs into `/content/runs/detect/train/`. No damage done (the real `helmet_v1` files on Drive
+were untouched, and the wasted run only took ~29s since coco8 is tiny) -- but it means nothing
+useful came out of that run, and `resume=True` should not be used to continue a completed run.
+
+**What actually works:** load the completed run's `best.pt` as a *pretrained starting point* for a
+fresh `model.train()` call with every argument given explicitly (`data=`, `project=`, `name=`) --
+not a true LR-schedule-preserving resume, but a standard, well-understood "continue fine-tuning"
+pattern that doesn't depend on stripped checkpoint state.
 
 ```python
 # 1. Mount Drive (fresh runtime each session -- remount if needed)
@@ -81,29 +97,46 @@ drive.mount('/content/drive')
 ```
 
 ```python
-# 2. Install ultralytics (resume only needs this -- no repo clone, no re-download required,
-# the checkpoint and dataset reference already live on Drive from the first run)
-!pip install -q ultralytics
+# 2. Need the repo again this time -- data= below is a path relative to it (resume=True didn't
+# need this because it never actually used the real dataset; this corrected version does).
+%cd /content
+!rm -rf /content/EdgeAI_helmet
+!git clone -b helmet-safety-pivot https://github.com/pnkhbk-0712/EdgeAI.git /content/EdgeAI_helmet
+%cd /content/EdgeAI_helmet
+!pip install -q ultralytics roboflow
 ```
 
 ```python
-# 3. Resume from the last checkpoint, extended to 50 total epochs (20 more than the first run).
-# NOTE: resume=True alone would stop immediately, since the checkpoint already reached the
-# original epochs=30 target -- passing a larger `epochs` here is what tells Ultralytics to keep
-# going instead of treating the run as already complete.
+# 3. Re-download the dataset into this fresh runtime (it lived only in the previous runtime's
+# /content, not on Drive -- the model checkpoint is what's on Drive, not the dataset files).
+import os
+from google.colab import userdata
+os.environ["ROBOFLOW_API_KEY"] = userdata.get("ROBOFLOW_API_KEY")
+!python src/download_helmet_data.py
+```
+
+```python
+# 4. Continue training from the completed run's best.pt, 20 more epochs, into a NEW run folder
+# (helmet_v1b) so the original helmet_v1 results aren't overwritten -- keeps a rollback point
+# per docs/CHANGELOG.md.
 from ultralytics import YOLO
-model = YOLO("/content/drive/MyDrive/EdgeAI_runs/helmet_v1/weights/last.pt")
-results = model.train(resume=True, epochs=50)
+model = YOLO("/content/drive/MyDrive/EdgeAI_runs/helmet_v1/weights/best.pt")
+results = model.train(
+    data="data/helmet_roboflow/data.yaml",
+    epochs=20, imgsz=640, batch=16, device=0,
+    project="/content/drive/MyDrive/EdgeAI_runs", name="helmet_v1b",
+)
 ```
 
 ```python
-# 4. Download the updated result
+# 5. Download the result
 from google.colab import files
-files.download('/content/drive/MyDrive/EdgeAI_runs/helmet_v1/weights/best.pt')
+files.download('/content/drive/MyDrive/EdgeAI_runs/helmet_v1b/weights/best.pt')
 ```
 
-Same integration steps as above once downloaded -- overwrite `models/helmet_v1_best.pt` (keep the
-old one momentarily to compare, per `docs/CHANGELOG.md`'s rollback rule, don't just clobber it),
-refresh `docs/train_helmet/` with the new `results.csv`/`results.png`/confusion matrices, and
-re-check the per-class AP50 and the head/helmet confusion rate specifically against the first
-run's numbers (head 0.963, helmet 0.982, 17% head->helmet confusion) before updating the report.
+Integration once downloaded: save as `models/helmet_v1b_best.pt` (don't overwrite
+`helmet_v1_best.pt` -- keep both until v1b is confirmed at least as good, per
+`docs/CHANGELOG.md`'s rollback rule), copy the new `results.csv`/`results.png`/confusion matrices
+to `docs/train_helmet/`, and compare per-class AP50 and the head/helmet confusion rate against
+v1's numbers (head 0.963, helmet 0.982, 17% head->helmet confusion) before deciding which model
+the report and the live demo actually use.
