@@ -9,19 +9,19 @@ chạy đúng, không phải debug phần cứng lẫn với debug kết quả t
 
 ## Bước 1 — Thông tin phần cứng
 
-- [ ] Model board: ________________________ (VD: Raspberry Pi 4B 2GB / 4GB / Pi 5)
-- [ ] RAM thực tế (chạy `free -h`, ghi lại dòng `Mem:`): ________________________
-- [ ] Dung lượng thẻ nhớ / còn trống (`df -h`): ________________________
-- [ ] Nguồn đang dùng (V/A ghi trên adapter): ________________________ — nếu không phải đúng
+- [x] Model board: Raspberry Pi 4 Model B (4GB RAM) 
+- [x] RAM thực tế (chạy `free -h`, ghi lại dòng `Mem:`): total 3.7Gi / used 429Mi / free 2.7Gi /                / shared 40Mi / buff-cache 693Mi / available 3.3Gi
+- [x] Dung lượng thẻ nhớ / còn trống (`df -h`): Tổng 28G (/dev/mmcblk0p2), đã dùng 6.7G, còn trống 20G
+- [x] Nguồn đang dùng (V/A ghi trên adapter): 5V/3A — nếu không phải đúng
       loại khuyến nghị (5V/3A cho Pi 4B, 27W USB-C PD cho Pi 5), ghi rõ, vì nguồn yếu gây
       brownout trông giống lỗi model chứ không phải lỗi nguồn
 
 ## Bước 2 — Cài hệ điều hành + kết nối
 
-- [ ] Đã flash Raspberry Pi OS (64-bit): ________________________ (phiên bản/ngày flash)
-- [ ] SSH vào được từ laptop qua WiFi: ⬜ Có ⬜ Không — nếu không, ghi lỗi cụ thể gặp phải
-- [ ] `python3 --version` trên Pi: ________________________
-- [ ] Cài được `opencv-python` + `ultralytics` chưa: ⬜ Có ⬜ Không
+- [x] Đã flash Raspberry Pi OS (64-bit): OS: Debian GNU/Linux 13 (trixie) / Ngày flash: 23/09/2025
+- [x] SSH vào được từ laptop qua WiFi: Có
+- [x] `python3 --version` trên Pi: Python 3.13.5
+- [x] Cài được `opencv-python` + `ultralytics` chưa: Có
 
 ## Bước 3 — Camera sanity check (chưa đụng tới model)
 
