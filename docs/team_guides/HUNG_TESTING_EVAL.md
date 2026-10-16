@@ -4,6 +4,9 @@ Thay cho `docs/PI_NEXT_STEP.md` (đã merge vào đây) — file đó đã xoá,
 giờ nằm ở đây. `docs/PI_BENCHMARK_GUIDE.md` vẫn giữ, dùng khi cần hướng dẫn chi tiết từng bước
 (scp file, cài thư viện...).
 
+> **Muốn làm luôn, không cần đọc hết file này trước?** Qua thẳng `docs/HUNG_RUN_AND_REPORT.md` —
+> bản rút gọn chỉ có lệnh cần chạy + mẫu báo cáo kết quả.
+
 ## Trạng thái thật hiện tại
 
 ### 1. `RASPI_CHECK_REPORT.md` — chưa xong hoàn toàn
