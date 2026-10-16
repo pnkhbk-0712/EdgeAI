@@ -863,3 +863,126 @@ whoever runs it on the Pi doesn't just chase the fastest number.
 **Still needed:** the team actually running `benchmark_pi.py` on the real Pi (after fixing the
 power supply) and reporting the real numbers back -- nothing in this entry claims a Pi result that
 hasn't been measured yet.
+
+## 2026-10-13 — End-to-end pipeline benchmark + a run-to-run variance finding (Hieu)
+
+**Why:** the midterm exam's Step 4 critique kept flagging the same gap -- every prior benchmark
+(`export_helmet_model.py`, `benchmark_pi.py`) measures raw ONNX `session.run()` only, not the
+actual deployed pipeline (`demo_helmet.py`'s `model.track()` + per-track class-smoothing + two
+`RestrictedZone.update()` calls). Wrote `src/benchmark_end_to_end.py` to close that gap by timing
+the real call path, importing `zone.py`/`helmet_zone_configs.py` unchanged rather than
+re-implementing their logic.
+
+**Real finding caught while building this, before trusting any number:** re-running the EXISTING
+standalone benchmark (`export_helmet_model.py`) on this same laptop, same image, same model, on
+three separate occasions gave ONNX fp32 numbers of 23.3ms, 30.8ms, and 29.7ms/frame -- roughly
++-30% run-to-run variance from background system load, not from the model or code changing at all.
+Comparing a fresh full-pipeline number against an old standalone constant from a different run
+would have confounded that noise with the real pipeline overhead. Fixed by measuring both
+standalone `session.run()` and the full pipeline in the *same* process invocation, back to back,
+so they share the same system-load conditions and the delta between them is attributable to the
+pipeline code, not noise.
+
+**Result (laptop CPU, two independent same-run comparisons):**
+
+| Run | Standalone ONNX | Full pipeline (track + zones) | Overhead |
+|---|---|---|---|
+| 1 | 25.4 ms/frame (39.4 FPS) | 52.9 ms/frame (18.9 FPS) | +27.5 ms (+109%) |
+| 2 | 26.6 ms/frame (37.6 FPS) | 57.0 ms/frame (17.5 FPS) | +30.4 ms (+115%) |
+
+The absolute millisecond figures still move around run to run (same cause as above), but the
+**relative overhead is stable at roughly +110%** across both runs -- Ultralytics' `track()` call
+plus this project's own per-frame Python logic currently costs about as much as the model
+inference itself. Still comfortably passes the <300ms/frame target on this laptop CPU (53-57ms),
+but this was previously an unmeasured, assumed-small gap, not a verified-small one.
+
+**Still open:** this is a laptop CPU number, not the Raspberry Pi 4B -- the standalone-vs-full-
+pipeline gap is now closed, the laptop-vs-Pi gap is not. Re-running this same script on the Pi
+(once its power supply and camera check are done, per `docs/PI_BENCHMARK_GUIDE.md`) would be the
+natural next step, since the 2x pipeline overhead found here might matter more, not less, on
+slower ARM hardware.
+
+## 2026-10-13 — Three more software-only fixes, no hardware required (Hieu)
+
+Closing out the remaining gaps that don't actually need the Pi or the physical rig, rather than
+leaving them all parked behind "waiting on hardware."
+
+**1. INT8 accuracy impact -- partially measured, honestly scoped.** `docs/CHANGELOG.md` and this
+file have said "INT8's accuracy impact specifically not measured" since 2026-10-10. A real
+dataset-wide mAP comparison needs `data/helmet_roboflow/` locally, which needs `ROBOFLOW_API_KEY`
+-- not available in this environment, a real and stated blocker, not worked around. What doesn't
+need that: `src/compare_int8_accuracy.py` runs both the fp32 and INT8 ONNX models on the one real
+benchmark image already in the repo (`val_batch0_pred.jpg`) and compares predictions directly.
+Result: **identical box count (16) and class breakdown (head=3, helmet=13, person=0) between fp32
+and INT8, average confidence within 0.001 (0.500 vs 0.499).** A single-image result, stated as
+exactly that in the script's own output -- not a substitute for a real mAP number, but a real,
+reassuring data point where previously there was none at all.
+
+**2. Two real bugs found and fixed in `demo_helmet.py` while implementing the "uncertain
+confidence band" idea from the midterm exam answer:**
+- The confidence-band idea itself is now real code: a raw per-frame detection with confidence in
+  [0.40, 0.60] is treated as "no helmet" (safety-first, same reasoning as the existing temporal
+  tie-break) but tagged `confidence_band: "uncertain"` in the event log, and labelled
+  `[UNCERTAIN - review]` on screen, so a human reviewing flagged events can tell a low-confidence
+  call from a clean one instead of every alert carrying equal weight.
+- **Found while testing that change, not something I was looking for:** `EVENTS_OUT.write_text()`
+  was overwriting the whole event log on every run, silently discarding all prior history. There
+  was no retention *policy* partly because there was nothing persisted for a policy to act on.
+  Fixed by loading existing events on startup, purging anything past `EVENT_RETENTION_DAYS` (30,
+  a stated starting default, not yet matched to a real policy), and appending instead of
+  overwriting. Every event now also carries a real `logged_at` timestamp (previously only a
+  relative mm:ss since script start, which can't support a retention rule at all) and a
+  `reviewed: false` field as a hook for an eventual correction/appeal workflow.
+- Verified with a manual test: seeded one 45-day-old and one 5-day-old synthetic event, ran the
+  script -- it printed `Retention: dropped 1 event(s) older than 30 days` and kept the 5-day-old
+  one, confirming both the persistence fix and the retention policy work. Also caught and fixed a
+  third, smaller bug this same test surfaced: the end-of-run "Violations flagged" count was
+  counting carried-over history as if it were new activity from that run -- now reported
+  separately (`Violations flagged this run: N (+M carried over, T total in log)`).
+
+**Still genuinely blocked, not just deferred:** domain-gap verification against the real demo rig,
+zone-polygon calibration against a real camera frame, and the Pi-specific latency/accuracy numbers
+all require hardware (camera, rig, Pi) that isn't available in this environment -- these are not
+"didn't get to it," they're "can't do it without the physical setup," and are left exactly as open
+as they were.
+
+## 2026-10-16 -- First real `benchmark_pi.py` run on the Pi 4B (Hung), partial
+
+Hung ran `src/benchmark_pi.py` on the Pi. Real result, pasted verbatim:
+
+| Format    | imgsz | ms/frame | FPS | <300ms? |
+|---|---|---|---|---|
+| ONNX fp32  | 640 | [missing: `helmet_v1_best.onnx` -- not copied to the Pi, skipped] | | |
+| ONNX INT8  | 640 | [missing: `helmet_v1_best_int8.onnx` -- not copied to the Pi, skipped] | | |
+| ONNX fp32  | 416 | 256.9 | 3.9 | YES |
+| ONNX fp32  | 320 | 127.6 | 7.8 | YES |
+
+`vcgencmd get_throttled` → `0x0` -- no undervoltage/throttling flag at the moment of the run (a
+snapshot, not a sustained-load guarantee, but a real improvement over the under-spec-PSU state
+`docs/RASPI_CHECK_REPORT.md` found on 2026-10-11).
+
+**The two rows that ran are not a usable answer, and I checked rather than assumed that from the
+docstring's own warning.** Re-ran all three real exported sizes against the laptop's benchmark
+image, matching each ONNX file to its own correct `imgsz` (the first attempt used the wrong default
+and errored -- `Got invalid dimensions ... Got: 640 Expected: 416`, fixed by passing `imgsz=` into
+`model.predict()` explicitly):
+
+| imgsz | boxes | head | helmet | person |
+|---|---|---|---|---|
+| 640 | 16 | 3 | 13 | 0 |
+| 416 | 5  | **0** | 5 | 0 |
+| 320 | 0  | 0 | 0 | 0 |
+
+At 416 -- the faster of the two rows that actually ran on the Pi -- every head detection on this
+image disappears; the 5 surviving boxes are all `helmet`. That is not "somewhat less accurate," it
+is "blind to the exact class this whole project exists to catch" on this image. At 320, nothing is
+detected at all, confirming the docstring's own warning rather than just repeating it. Both Pi rows
+pass the <300ms latency target while being unusable for the safety purpose -- latency and
+usefulness are not the same test, and this is a real example of latency passing while usefulness
+fails.
+
+**Next step, not yet done:** copy `helmet_v1_best.onnx` and `helmet_v1_best_int8.onnx` from the
+laptop's `models/` to the Pi's `models/` and re-run `benchmark_pi.py` -- those are the two formats
+most likely to actually detect anything useful, and they're exactly the two rows still missing.
+Until that run exists, "can the Pi meet the latency target without losing detection" is still an
+open question, not a settled "yes" from the 320 row alone.

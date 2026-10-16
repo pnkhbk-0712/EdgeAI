@@ -28,6 +28,19 @@ linked to a name. Only zone/timestamp/confidence numbers are logged. See the pri
 startup and PRIVACY_NOTE below; this is a statement about what this code actually does, not just
 a claim made in the report.
 
+Confidence-uncertain band + event retention (2026-10-13, closes two named gaps rather than just
+documenting them): (1) a raw per-frame classification confidence inside CONFIDENCE_UNCERTAIN_LOW/
+HIGH is not trusted as a clean call either way -- it is treated as "no helmet" for the safety-first
+reason the temporal smoothing above already uses (missing a real violation is the costlier
+failure), but the resulting label/event is tagged uncertain=True so a human reviewing the log can
+tell a low-confidence flag from a clean one, instead of every alert carrying equal weight. (2) a
+real bug found while adding this: EVENTS_OUT was being overwritten on every run with only that
+run's events, silently discarding all prior history -- there was no retention *policy* partly
+because there was no retained history to apply one to. Fixed by loading, purging anything older
+than EVENT_RETENTION_DAYS, and appending to the existing log instead of replacing it; every event
+now also carries a real "logged_at" timestamp (previously only a relative mm:ss since script start,
+which can't support a retention rule at all).
+
 Usage:
     python src/demo_helmet.py                  # live webcam (source 0)
     python src/demo_helmet.py --source path.mp4  # recorded video instead, for dry-running
@@ -37,6 +50,7 @@ import argparse
 import json
 import time
 from collections import defaultdict, deque
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import cv2
@@ -71,6 +85,20 @@ COMPLIANCE_SNAPSHOT_INTERVAL_SEC = 30.0  # persist a compliance snapshot this of
 # itself delay a real alert.
 CLASS_SMOOTHING_WINDOW = 5
 
+# A raw per-frame classification confidence inside this band is not trusted as a clean call
+# either way (2026-10-13 -- see module docstring). Chosen as a symmetric band around 0.5 (the
+# point a binary head/helmet confidence carries the least information); not yet tuned against
+# real field data, since no field data exists yet -- a reasonable starting point, not a measured
+# optimum, stated honestly rather than implied otherwise.
+CONFIDENCE_UNCERTAIN_LOW = 0.40
+CONFIDENCE_UNCERTAIN_HIGH = 0.60
+
+# Report Step 8 (Ethics) -- events older than this are dropped on startup rather than kept with
+# no policy at all. 30 days is a starting default, not yet matched to any real retention
+# requirement (none exists yet for a classroom prototype) -- stated as a parameter precisely so
+# it's one line to change once a real policy is decided, not buried in logic.
+EVENT_RETENTION_DAYS = 30
+
 PRIVACY_NOTE = (
     "Privacy note: no video frame is saved to disk; track ids reset every run and are never "
     "linked to an identity; only zone/timestamp/confidence events are logged to "
@@ -81,6 +109,37 @@ def frame_timestamp(frame_idx, fps):
     total_seconds = frame_idx / fps
     m, s = divmod(int(total_seconds), 60)
     return f"{m:02d}:{s:02d}"
+
+
+def load_and_purge_events(path, retention_days):
+    """Load events already logged from prior runs, dropping any older than retention_days.
+    Returns the list to keep appending to for this run -- previously this project had no
+    cross-run persistence at all (EVENTS_OUT was overwritten every run), so there was nothing
+    for a retention policy to act on; this both adds the persistence and the policy together."""
+    if not path.exists():
+        return []
+    cutoff = datetime.now() - timedelta(days=retention_days)
+    kept = []
+    dropped = 0
+    for line in path.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            event = json.loads(line)
+            logged_at = datetime.fromisoformat(event["logged_at"])
+        except (json.JSONDecodeError, KeyError, ValueError):
+            # Events from before 2026-10-13 have no "logged_at" field -- keep them rather than
+            # silently discarding older history just because the schema changed.
+            kept.append(event)
+            continue
+        if logged_at >= cutoff:
+            kept.append(event)
+        else:
+            dropped += 1
+    if dropped:
+        print(f"Retention: dropped {dropped} event(s) older than {retention_days} days.")
+    return kept
 
 
 def main():
@@ -121,7 +180,10 @@ def main():
 
     print(PRIVACY_NOTE + str(EVENTS_OUT))
 
-    events = []
+    events = load_and_purge_events(EVENTS_OUT, EVENT_RETENTION_DAYS)
+    carried_over_count = len(events)  # events kept from prior runs -- excluded from this run's
+                                       # own "violations flagged" summary so that number isn't
+                                       # inflated by history the retention fix now preserves.
     frame_idx = 0
     t_start = time.time()
     # rolling (timestamp, is_no_helmet) samples for the live compliance-rate readout
@@ -154,6 +216,12 @@ def main():
                 cx, cy = (x1 + x2) / 2, (y1 + y2) / 2
                 class_name = CLASS_NAMES.get(int(cls_id), str(cls_id))
                 raw_is_no_helmet = int(cls_id) == NO_HELMET_CLASS_ID
+                # A low-confidence raw call is not trusted either way -- biased toward "no
+                # helmet" for the same safety-first reason the smoothing tie-break already uses,
+                # but tagged so the event log can tell a clean flag from an uncertain one.
+                is_uncertain_raw = CONFIDENCE_UNCERTAIN_LOW <= conf <= CONFIDENCE_UNCERTAIN_HIGH
+                if is_uncertain_raw:
+                    raw_is_no_helmet = True
 
                 now = time.time()
                 if class_name == "person":
@@ -176,8 +244,10 @@ def main():
                         in_high, high_violation, high_new = high_risk.update(int(track_id), cx, cy)
                         in_normal, normal_violation, normal_new = normal.update(int(track_id), cx, cy)
                         is_violation = high_violation or normal_violation
-                        color = (0, 0, 255) if is_violation else (0, 165, 255)
+                        color = (0, 165, 255) if is_uncertain_raw else ((0, 0, 255) if is_violation else (0, 165, 255))
                         label = f"NO HELMET #{track_id} {conf:.2f}"
+                        if is_uncertain_raw:
+                            label += " [UNCERTAIN - review]"
                         if high_violation:
                             label += " [HIGH-RISK ALERT]"
                         elif normal_violation:
@@ -192,7 +262,10 @@ def main():
                                     "zone": zone_name,
                                     "track_id": int(track_id),
                                     "confidence": round(float(conf), 2),
+                                    "confidence_band": "uncertain" if is_uncertain_raw else "normal",
                                     "timestamp": frame_timestamp(frame_idx, fps),
+                                    "logged_at": datetime.now().isoformat(timespec="seconds"),
+                                    "reviewed": False,
                                 }
                                 events.append(event)
                                 print("VIOLATION:", json.dumps(event))
@@ -221,6 +294,7 @@ def main():
                 "reason": "no_detections",
                 "seconds_silent": round(now - last_detection_time, 1),
                 "timestamp": frame_timestamp(frame_idx, fps),
+                "logged_at": datetime.now().isoformat(timespec="seconds"),
             }
             events.append(event)
             print("MONITORING ALERT (no detections -- check camera/model, not necessarily compliant):",
@@ -240,6 +314,7 @@ def main():
                 "compliance_pct": snap_pct,
                 "sample_count": len(compliance_window),
                 "timestamp": frame_timestamp(frame_idx, fps),
+                "logged_at": datetime.now().isoformat(timespec="seconds"),
             })
 
         if not args.no_display:
@@ -257,7 +332,8 @@ def main():
 
     print("\n--- Run summary ---")
     print(f"Frames processed:    {frame_idx}")
-    print(f"Violations flagged:  {len(events)}")
+    print(f"Violations flagged this run: {len(events) - carried_over_count}  "
+          f"(+{carried_over_count} carried over from prior runs, {len(events)} total in log)")
     print(f"Wall-clock time:     {elapsed:.1f}s ({frame_idx/max(elapsed,1e-6):.1f} FPS)")
     print(f"Events log saved:    {EVENTS_OUT}")
 
