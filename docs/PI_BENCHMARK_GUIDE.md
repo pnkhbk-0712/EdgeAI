@@ -1,5 +1,9 @@
 # Hướng dẫn benchmark model mũ bảo hộ trên Raspberry Pi — Hùng
 
+> Việc cần làm **ngay bây giờ** (tiếp theo sau lần chạy đầu 2026-10-16) nằm ở
+> `docs/team_guides/HUNG_TESTING_EVAL.md`. File này chỉ còn là hướng dẫn kỹ thuật chi tiết
+> (copy file, cài lib, cú pháp lệnh) — không cần đọc lại từ đầu mỗi lần.
+
 ## Bối cảnh (vì sao cần làm cái này)
 
 Lần check Pi trước (`docs/RASPI_CHECK_REPORT.md`) đo được **0.30 FPS** chạy `yolov8n.pt` gốc —
