@@ -1034,3 +1034,55 @@ again, consistent with the original Step 4 rejection (2026-10-10) and the laptop
 (head 0.960, helmet 0.980) match the original `.pt` model's training-time AP50 (head 0.963, helmet
 0.982, 2026-10-09) almost exactly -- confirms the ONNX export itself didn't silently degrade
 accuracy, a question that was never directly checked before now.
+
+## 2026-10-17 (later) -- `audit_dataset.py` re-pointed at the real dataset, clean result
+
+The script had been hardcoded to `data/ua_detrac_yolo/` (the old parking project's vehicle
+dataset) since before the pivot -- flagged repeatedly as "needs updating if reused" but never
+actually done until now that `data/helmet_roboflow/` exists locally. Re-pointed it: Roboflow's
+export layout puts `images/`/`labels/` under each split (`train`/`valid`/`test`), not split under
+a shared `images/`/`labels/` like the old UA-DETRAC conversion did, and class names changed to
+`head`/`helmet`/`person` (order confirmed against `data/helmet_roboflow/data.yaml`, matching
+`CLASS_NAMES` already used in `compare_int8_accuracy.py`/`benchmark_end_to_end.py`). Also had to
+filter the label-folder listing to `.txt` only -- Ultralytics drops a `labels.cache` file in the
+same folder (created by the `yolo val` runs today), and without filtering it showed up as a false
+orphan label.
+
+**Real result, ran against all 7,035 images:** 4916 train + 1413 valid + 706 test checked, **0
+issues of every kind** -- no corrupt images, no orphan images/labels, no malformed label lines,
+no out-of-range coordinates, no zero-size boxes, no bad class ids. This is a real, clean signal
+about the source dataset itself (Roboflow's own curated export), not a guess -- the one prior
+dataset this project used (UA-DETRAC + merged motorbike sources) needed an actual fix for a real
+corrupt-file bug (2026-09-18); this one needed none.
+
+## 2026-10-17 (later still) -- Decisions on the two remaining model gaps (head→helmet 17%, person AP50)
+
+Both gaps were left open in `docs/team_guides/HIEU_DATA_MODEL.md` as "pick a direction, don't
+leave it blank." Neither can be resolved by code changes alone -- both require retraining
+(augmentation, per-class loss weighting, or oversampling all change what the model learns, not
+just how it's measured), which needs the team's Colab T4 time, not something decidable or
+runnable from this environment (no local GPU). Decision made now so neither gap sits undecided
+going into the report/demo, with the reasoning stated plainly so the team can override it:
+
+**`head`→`helmet` 17% confusion -- documented as a known limitation for this cycle, not
+retrained.** Reasoning: today's dataset-wide mAP run (see entry above) confirmed this gap is real
+and stable (head mAP50 0.960, consistent across fp32/INT8) with no code-level fix available --
+only a retrain can move it, and a retrain's actual effect on this specific confusion is unproven
+(the one retrain already tried this project, `helmet_v1b` +20 epochs, showed no real improvement
+on anything, 2026-10-09). Spending remaining time on an uncertain retrain this close to a live
+demo is a real risk, not just caution for its own sake. **If the team decides there's time for
+one more retrain attempt, per-class loss weighting (upweighting `head`'s loss contribution) is
+the lower-effort, more targeted lever to try first** -- cheaper than designing new augmentation,
+and directly targets the class under-performing, rather than the whole dataset.
+
+**`person` AP50 (0.034 train-time, 0.041 on today's full-val re-check) -- documented as a known
+limitation, not retrained.** Reasoning: same as above (today's run confirmed it's unaffected by
+quantization, so it's a data problem specifically -- 31:1 class imbalance vs `helmet`), plus this
+class is **not used by the zone/violation logic at all** (`src/demo_helmet.py` only acts on
+`head`/`helmet`), so unlike the `head` gap this one has no safety consequence for the live demo,
+only a reporting-honesty one. Lower priority than `head` for that reason. **If retrained anyway,
+oversampling `person`-containing training images** (same technique already used successfully for
+the old parking project's motorcycle class, 2026-09-18) is the direct lever.
+
+**Both now belong in the report's limitations section, Step 7 (monitoring/iteration) as planned
+future work, not as open TODOs for this cycle.**

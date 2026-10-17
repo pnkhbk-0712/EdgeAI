@@ -1,5 +1,6 @@
-"""Data-integrity audit for data/ua_detrac_yolo/ -- run this after any conversion/merge/
-oversample step, before training. Checks what a "does it run" smoke-test won't catch:
+"""Data-integrity audit for data/helmet_roboflow/ -- run this after downloading the dataset
+(src/download_helmet_data.py), before training. Checks what a "does it run" smoke-test won't
+catch:
 
 - corrupt/unreadable images (cv2.imread returns None)
 - orphan images (no matching label file) or orphan labels (no matching image)
@@ -7,18 +8,26 @@ oversample step, before training. Checks what a "does it run" smoke-test won't c
 - out-of-range normalized coordinates, zero-size boxes, invalid class ids
 
 Writes a full report to docs/audit_report.txt (git-ignored -- regenerate, don't diff it) and
-prints a summary. Real bug this caught once already: a source filename with a non-ASCII
-character got mangled during zip extraction on Windows, producing 5 unreadable images after
-oversampling multiplied the one bad file -- see docs/RUNLOG.md, 2026-09-18.
+prints a summary. Real bug this caught once already on the old parking-project dataset: a source
+filename with a non-ASCII character got mangled during zip extraction on Windows, producing 5
+unreadable images after oversampling multiplied the one bad file -- see docs/RUNLOG.md,
+2026-09-18. Same check, now re-pointed at this project's real dataset (2026-10-17) -- was
+hardcoded to the old UA-DETRAC vehicle dataset, which this project no longer uses.
+
+2026-10-17: re-pointed from data/ua_detrac_yolo/ (old parking project, car/motorcycle/bus/truck,
+images/labels split at the top level) to data/helmet_roboflow/ (this project, head/helmet/person,
+Roboflow's own layout: each split has its own images/ and labels/ subfolder, confirmed against
+data/helmet_roboflow/data.yaml, and class order confirmed to match CLASS_NAMES already used in
+src/compare_int8_accuracy.py and src/benchmark_end_to_end.py).
 """
 import os
 from pathlib import Path
 
 import cv2
 
-ROOT = Path(__file__).resolve().parent.parent / "data" / "ua_detrac_yolo"
+ROOT = Path(__file__).resolve().parent.parent / "data" / "helmet_roboflow"
 REPORT_OUT = Path(__file__).resolve().parent.parent / "docs" / "audit_report.txt"
-NAMES = ["car", "motorcycle", "bus", "truck"]
+NAMES = ["head", "helmet", "person"]
 
 
 def main():
@@ -33,15 +42,19 @@ def main():
         "bad_class_id": [],
     }
 
-    for split in ["train", "val"]:
-        img_dir = ROOT / "images" / split
-        lbl_dir = ROOT / "labels" / split
+    for split in ["train", "valid", "test"]:
+        img_dir = ROOT / split / "images"
+        lbl_dir = ROOT / split / "labels"
         if not img_dir.exists():
             print(f"WARNING: {img_dir} not found, skipping {split}")
             continue
 
-        img_files = {f.stem: f.name for f in img_dir.iterdir()}
-        lbl_files = {f.stem: f.name for f in lbl_dir.iterdir()}
+        img_exts = {".jpg", ".jpeg", ".png"}
+        img_files = {f.stem: f.name for f in img_dir.iterdir() if f.suffix.lower() in img_exts}
+        # labels.cache (Ultralytics' own cache file, not a label) lives alongside the real .txt
+        # label files in this Roboflow export layout -- filter to .txt only or its stem ("labels")
+        # would show up as a false orphan label.
+        lbl_files = {f.stem: f.name for f in lbl_dir.iterdir() if f.suffix.lower() == ".txt"}
         img_stems, lbl_stems = set(img_files), set(lbl_files)
 
         for stem in img_stems - lbl_stems:
