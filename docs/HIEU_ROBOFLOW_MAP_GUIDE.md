@@ -106,12 +106,17 @@ Không cần viết script mới — Ultralytics đã có sẵn lệnh validate 
 `.onnx`:
 
 ```cmd
-yolo val model=models/helmet_v1_best.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=fp32
-yolo val model=models/helmet_v1_best_int8.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=int8
+yolo val model=models/helmet_v1_best.onnx data="D:\DOANMINHHIEU\STUDIES\Ky9\01_Ai\LA4\prototype\data\helmet_roboflow\data.yaml" imgsz=640 project=models/mAP name=fp32
+yolo val model=models/helmet_v1_best_int8.onnx data="D:\DOANMINHHIEU\STUDIES\Ky9\01_Ai\LA4\prototype\data\helmet_roboflow\data.yaml" imgsz=640 project=models/mAP name=int8
 ```
 
-(`python -m ultralytics ...` **không chạy được** — `ultralytics` không có `__main__.py` để `-m`
-gọi trực tiếp. Cài gói `ultralytics` tự thêm lệnh `yolo` vào venv, dùng thẳng lệnh đó.)
+Hai điều đã sửa so với bản đầu, cả hai bắt từ lỗi thật khi chạy thử:
+
+- `python -m ultralytics ...` **không chạy được** — `ultralytics` không có `__main__.py` để `-m`
+  gọi trực tiếp. Cài gói `ultralytics` tự thêm lệnh `yolo` vào venv, dùng thẳng lệnh đó.
+- `data=` phải là **đường dẫn tuyệt đối**, không phải tương đối (`data/helmet_roboflow/data.yaml`
+  gây lỗi `FileNotFoundError`, vì Ultralytics tự ghép đường dẫn tương đối vào thư mục dataset mặc
+  định của riêng nó — `...\01_Ai\datasets\` — không phải thư mục bạn đang đứng).
 
 `project=`/`name=` ghi kết quả vào `models/mAP/fp32/` và `models/mAP/int8/` (thay vì mặc định
 `runs/detect/val*`) — thư mục này **không bị gitignore**, giống cách `docs/train_helmet/` đang
