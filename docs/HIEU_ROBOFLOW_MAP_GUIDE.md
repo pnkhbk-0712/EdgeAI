@@ -3,6 +3,9 @@
 File này chỉ để **thực thi** — bối cảnh đầy đủ (vì sao cần, hiện đang thiếu gì) nằm ở
 `docs/team_guides/HIEU_DATA_MODEL.md`. Đọc file này là đủ để làm.
 
+Toàn bộ lệnh dưới đây viết cho **cmd.exe** (Command Prompt), đúng terminal bạn đang dùng — không
+phải PowerShell, các lệnh sẽ khác nếu đổi sang PowerShell.
+
 ## Chạy ở đâu? — Trả lời thẳng: **máy cá nhân của bạn**, không phải Colab
 
 Lý do cụ thể, không phải chọn ngẫu nhiên:
@@ -13,12 +16,40 @@ Lý do cụ thể, không phải chọn ngẫu nhiên:
 - 2 file đó **không có trên Colab** (bị gitignore, không nằm trong git, Colab clone/pull repo sẽ
   không có chúng) — muốn chạy trên Colab thì phải upload tay 2 file này lên trước, thêm một bước
   không cần thiết.
-- Máy bạn đã cài sẵn `ultralytics`/`onnxruntime` (dùng suốt từ đầu dự án), không cần cài gì thêm.
-- Chạy mAP (so câu trả lời model với nhãn thật) không cần GPU — máy CPU thường chạy vẫn ra kết
-  quả đúng, chỉ chậm hơn chút so với GPU Colab, không đáng kể cho việc chạy 1 lần.
+- Chạy mAP (so câu trả lời model với nhãn thật) không cần GPU — máy CPU vẫn ra kết quả đúng, chỉ
+  chậm hơn GPU Colab chút, không đáng kể cho việc chạy 1 lần.
 
-**Colab chỉ cần đụng tới ở Bước 1 dưới đây** — để XEM lại key cũ đã lưu, không cần chạy gì ở đó.
-Nếu không tìm lại được key cũ thì cũng không cần Colab luôn, lấy key mới thẳng từ roboflow.com.
+**Colab chỉ cần đụng tới ở Bước 2 dưới đây** — để XEM lại key cũ đã lưu, không cần chạy gì ở đó.
+
+## Bước 0 — Setup venv (nếu chưa có, hoặc venv cũ đang ở sai chỗ)
+
+**Venv phải nằm ở gốc repo (`prototype\`), không phải trong `models\mAP\`** — chỗ đó dành cho kết
+quả `yolo val` ở Bước 5, không phải chỗ đặt venv.
+
+Nếu trước đó bạn lỡ tạo venv trong `models\mAP\`, xoá nó trước:
+```cmd
+cd "D:\DOANMINHHIEU\STUDIES\Ky9\01_Ai\LA4\prototype\models\mAP"
+rmdir /s /q venv
+```
+
+Tạo venv đúng chỗ và cài thư viện:
+```cmd
+cd "D:\DOANMINHHIEU\STUDIES\Ky9\01_Ai\LA4\prototype"
+python -m venv venv
+venv\Scripts\activate.bat
+pip install -r requirements.txt
+```
+
+Nếu `python` báo lỗi hoặc ra bản không đúng, dùng thẳng đường dẫn:
+```cmd
+"D:\DOANMINHHIEU\STUDIES\Code\python.exe" -m venv venv
+```
+rồi vẫn `venv\Scripts\activate.bat` như trên (không dùng `Activate.ps1` — đó là file PowerShell,
+không chạy đúng trong cmd.exe).
+
+Activate đúng thì prompt sẽ có `(venv)` ở đầu, ví dụ:
+`(venv) D:\DOANMINHHIEU\STUDIES\Ky9\01_Ai\LA4\prototype>`. **Mọi lệnh ở Bước 1-5 dưới đây chạy
+trong cùng cửa sổ cmd này, sau khi đã thấy `(venv)`** — mở cửa sổ cmd mới thì phải activate lại.
 
 ## Bước 1 — Tìm lại hoặc lấy ROBOFLOW_API_KEY
 
@@ -31,49 +62,50 @@ báo của project cũ (trước khi pivot sang helmet) — nên thử tìm lạ
   khoản nhóm đã dùng trước đó → **Settings → Roboflow API** → copy key.
 
 Sau bước này bạn chỉ cần **chuỗi key** (dạng chữ+số) — đóng Colab lại, mọi thứ còn lại làm trên
-máy cá nhân.
+máy cá nhân, trong cửa sổ cmd đã activate venv ở Bước 0.
 
-## Bước 2 — Set key trên máy cá nhân (PowerShell)
+## Bước 2 — Set key trên máy cá nhân (cmd.exe)
 
-Mở PowerShell **ngay trong terminal bạn sẽ chạy các lệnh ở Bước 3-5** (biến này chỉ tồn tại
-trong phiên terminal đang mở, đóng terminal là mất, lần sau mở lại phải set lại):
+Biến này chỉ tồn tại trong phiên cmd đang mở — đóng cửa sổ là mất, lần sau mở lại phải set lại:
 
-```powershell
-$env:ROBOFLOW_API_KEY = "key-của-bạn"
+```cmd
+set ROBOFLOW_API_KEY=key-của-bạn
 ```
 
 Không paste key vào bất kỳ file `.py`/`.md` nào, không đưa vào commit message — chỉ set làm biến
 môi trường tạm thời như trên.
 
-## Bước 3 — Tải dataset thật (chạy trên máy cá nhân, terminal vừa set key ở Bước 2)
+## Bước 3 — Tải dataset thật
 
-```powershell
-cd "D:\DOANMINHHIEU\STUDIES\Ky9\01_Ai\LA4\prototype"
-python src/download_helmet_data.py
+```cmd
+python src\download_helmet_data.py
 ```
 
 Script tự xoá `data/helmet_roboflow/` cũ nếu có trước khi tải lại (tránh bug SDK coi thư mục có
 sẵn là "đã tải rồi" rồi bỏ qua, đã note trong chính script). Chạy xong sẽ in ra đường dẫn
-`data/helmet_roboflow/data.yaml` — **xác nhận file này thực sự tồn tại** trước khi qua bước sau
-(mở thử bằng File Explorer hoặc `Test-Path data/helmet_roboflow/data.yaml` cũng được, phải ra
-`True`).
+`data/helmet_roboflow/data.yaml` — **xác nhận file này thực sự tồn tại** trước khi qua bước sau:
+
+```cmd
+dir data\helmet_roboflow\data.yaml
+```
+Phải thấy file liệt kê ra, không phải báo lỗi "File Not Found".
 
 ## Bước 4 — Kiểm tra thứ tự class trong `data.yaml`
 
-```powershell
-Get-Content data/helmet_roboflow/data.yaml
+```cmd
+type data\helmet_roboflow\data.yaml
 ```
 
 Roboflow export theo alphabet mặc định (head, helmet, person) — đối chiếu với `CLASS_NAMES` đang
 dùng trong `src/compare_int8_accuracy.py` (`{0: "head", 1: "helmet", 2: "person"}`) để chắc không
 bị lệch thứ tự trước khi đọc kết quả mAP theo class ở bước sau.
 
-## Bước 5 — Chạy mAP thật cho cả fp32 và INT8 (vẫn trên máy cá nhân)
+## Bước 5 — Chạy mAP thật cho cả fp32 và INT8
 
 Không cần viết script mới — Ultralytics đã có sẵn lệnh validate chuẩn, chạy được thẳng trên file
 `.onnx`:
 
-```powershell
+```cmd
 python -m ultralytics val model=models/helmet_v1_best.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=fp32
 python -m ultralytics val model=models/helmet_v1_best_int8.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=int8
 ```
@@ -119,17 +151,16 @@ signal" mà `compare_int8_accuracy.py` đã nói rõ là không đủ để kế
 
 ## Nếu thật sự muốn chạy trên Colab thay vì máy cá nhân
 
-Không khuyến nghị (thêm việc không cần thiết), nhưng nếu máy cá nhân quá yếu hoặc có lý do khác,
-cần làm thêm 2 bước Bước 3-5 ở trên không có:
+Không khuyến nghị (thêm việc không cần thiết), nhưng nếu máy cá nhân quá yếu hoặc có lý do khác:
 
 1. Trên Colab: `!git clone -b helmet-safety-pivot https://github.com/pnkhbk-0712/EdgeAI.git`
    rồi `%cd EdgeAI/prototype`.
 2. Upload tay 2 file `models/helmet_v1_best.onnx` và `models/helmet_v1_best_int8.onnx` từ máy cá
    nhân lên đúng thư mục `models/` trên Colab (vì chúng bị gitignore, `git clone` không có) —
    dùng panel Files bên trái Colab, kéo-thả vào đúng thư mục.
-3. Từ đó làm lại Bước 1-2 (set key bằng `google.colab.userdata`, xem lại hướng dẫn cũ trong
-   `docs/team_guides/HIEU_DATA_MODEL.md` nếu cần cú pháp) rồi Bước 3-5 y hệt, chỉ đổi `python ...`
-   thành `!python ...` (Colab cell cần dấu `!` trước lệnh shell).
+3. Set key bằng `google.colab.userdata` thay vì `set ROBOFLOW_API_KEY=...`, rồi Bước 3-5 y hệt,
+   chỉ đổi lệnh thành có dấu `!` trước (Colab cell cần `!` trước lệnh shell) — không cần venv
+   trên Colab, môi trường đã có sẵn ultralytics.
 
 ## Tài liệu liên quan
 
