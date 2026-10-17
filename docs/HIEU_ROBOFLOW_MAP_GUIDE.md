@@ -74,14 +74,18 @@ Không cần viết script mới — Ultralytics đã có sẵn lệnh validate 
 `.onnx`:
 
 ```powershell
-python -m ultralytics val model=models/helmet_v1_best.onnx data=data/helmet_roboflow/data.yaml imgsz=640
-python -m ultralytics val model=models/helmet_v1_best_int8.onnx data=data/helmet_roboflow/data.yaml imgsz=640
+python -m ultralytics val model=models/helmet_v1_best.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=fp32
+python -m ultralytics val model=models/helmet_v1_best_int8.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=int8
 ```
 
+`project=`/`name=` ghi kết quả vào `models/mAP/fp32/` và `models/mAP/int8/` (thay vì mặc định
+`runs/detect/val*`) — thư mục này **không bị gitignore**, giống cách `docs/train_helmet/` đang
+lưu kết quả train, nên commit được để cả nhóm/thầy xem lại số liệu gốc, không chỉ số đã chép tay.
+
 Mỗi lệnh in ra bảng mAP50/mAP50-95/precision/recall **theo từng class** (head/helmet/person) và
-tổng, cộng với confusion matrix lưu trong `runs/detect/val*/`. Chạy cả 2 lệnh, không chỉ 1 — mục
-đích là so sánh fp32 vs INT8, không phải chỉ xem 1 model. Mỗi lệnh có thể chạy vài phút trên CPU,
-tuỳ tốc độ máy — đây là bình thường, không phải lỗi.
+tổng, cộng với confusion matrix lưu trong thư mục kết quả tương ứng. Chạy cả 2 lệnh, không chỉ 1
+— mục đích là so sánh fp32 vs INT8, không phải chỉ xem 1 model. Mỗi lệnh có thể chạy vài phút
+trên CPU, tuỳ tốc độ máy — đây là bình thường, không phải lỗi.
 
 ## Bước 6 — Đọc kết quả, so sánh
 
@@ -110,7 +114,8 @@ Nhận xét: (INT8 có làm tệ hơn đáng kể không, đặc biệt ở clas
 
 Sau khi có số thật, cập nhật `docs/RUNLOG.md` (thêm mục mới, không sửa đè mục cũ) và
 `docs/CHANGELOG.md` — ghi rõ đây là **mAP thật trên cả dataset**, thay thế phần "single-image
-signal" mà `compare_int8_accuracy.py` đã nói rõ là không đủ để kết luận.
+signal" mà `compare_int8_accuracy.py` đã nói rõ là không đủ để kết luận, và trỏ tới
+`models/mAP/fp32/` / `models/mAP/int8/` làm nguồn số liệu gốc thay vì chép tay lại hết.
 
 ## Nếu thật sự muốn chạy trên Colab thay vì máy cá nhân
 
