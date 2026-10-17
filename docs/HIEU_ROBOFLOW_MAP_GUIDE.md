@@ -106,9 +106,12 @@ Không cần viết script mới — Ultralytics đã có sẵn lệnh validate 
 `.onnx`:
 
 ```cmd
-python -m ultralytics val model=models/helmet_v1_best.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=fp32
-python -m ultralytics val model=models/helmet_v1_best_int8.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=int8
+yolo val model=models/helmet_v1_best.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=fp32
+yolo val model=models/helmet_v1_best_int8.onnx data=data/helmet_roboflow/data.yaml imgsz=640 project=models/mAP name=int8
 ```
+
+(`python -m ultralytics ...` **không chạy được** — `ultralytics` không có `__main__.py` để `-m`
+gọi trực tiếp. Cài gói `ultralytics` tự thêm lệnh `yolo` vào venv, dùng thẳng lệnh đó.)
 
 `project=`/`name=` ghi kết quả vào `models/mAP/fp32/` và `models/mAP/int8/` (thay vì mặc định
 `runs/detect/val*`) — thư mục này **không bị gitignore**, giống cách `docs/train_helmet/` đang
