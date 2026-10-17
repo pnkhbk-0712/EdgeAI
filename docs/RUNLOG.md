@@ -986,3 +986,51 @@ laptop's `models/` to the Pi's `models/` and re-run `benchmark_pi.py` -- those a
 most likely to actually detect anything useful, and they're exactly the two rows still missing.
 Until that run exists, "can the Pi meet the latency target without losing detection" is still an
 open question, not a settled "yes" from the 320 row alone.
+
+## 2026-10-17 -- Real dataset-wide mAP: fp32 vs INT8 (Hieu), closes a gap flagged since 2026-10-13
+
+`src/compare_int8_accuracy.py` (2026-10-13) could only compare fp32 vs INT8 on one real image,
+explicitly because `ROBOFLOW_API_KEY` wasn't available in this environment to download the full
+val set. Hieu ran it himself on his own machine, where that's not a blocker: found the key had
+already been used for the old signs-project Colab notebook, set it locally, ran
+`src/download_helmet_data.py` (1413 val images, class order confirmed `head/helmet/person`,
+matching `CLASS_NAMES`), then `yolo val` on both ONNX models against the real val set. Full
+results committed at `models/mAP/fp32/` and `models/mAP/int8/` (plots, confusion matrices, PR
+curves -- not just the numbers below).
+
+| | Box(P) | R | mAP50 | mAP50-95 |
+|---|---|---|---|---|
+| **fp32 -- all** | 0.961 | 0.623 | 0.660 | 0.463 |
+| **fp32 -- head** | 0.920 | 0.926 | 0.960 | 0.674 |
+| **fp32 -- helmet** | 0.964 | 0.942 | 0.980 | 0.693 |
+| **fp32 -- person** | 1.000 | 0.000 | 0.041 | 0.023 |
+| **INT8 -- all** | 0.961 | 0.623 | 0.659 | 0.462 |
+| **INT8 -- head** | 0.917 | 0.930 | 0.957 | 0.672 |
+| **INT8 -- helmet** | 0.966 | 0.938 | 0.980 | 0.692 |
+| **INT8 -- person** | 1.000 | 0.000 | 0.040 | 0.023 |
+
+Inference speed in this same run: fp32 30.1ms/image, INT8 39.9ms/image (CPU) -- INT8 slower
+again, consistent with the original Step 4 rejection (2026-10-10) and the laptop's own prior
+`export_benchmark.md` finding, not a new result.
+
+**What this actually answers, from the 3 open questions in the guide (`docs/HIEU_ROBOFLOW_MAP_GUIDE.md`):**
+
+1. **fp32 vs INT8 overall:** mAP50 0.660 vs 0.659, mAP50-95 0.463 vs 0.462 -- a real, dataset-wide
+   confirmation of the single-image finding from 2026-10-13 (identical box count/class, confidence
+   delta 0.001): INT8 quantization costs essentially nothing in accuracy here. Combined with INT8
+   being slower on this CPU, the Step 4 decision to deploy fp32 and reject INT8 holds for both
+   reasons now, not latency alone.
+2. **`head` class (the 17% head-\>helmet confusion):** mAP50 0.960 (fp32) vs 0.957 (INT8) -- a
+   0.3 point difference, noise-level, not something quantization is making meaningfully worse.
+   The 17% confusion is a model/data problem, not a quantization side-effect.
+3. **`person` class (AP50=0.034 at training time):** mAP50 0.041 (fp32) vs 0.040 (INT8) here --
+   matches the original training-time number closely (0.034 vs 0.041, same order of magnitude,
+   small difference expected since this is the ONNX-exported model validated fresh, not the exact
+   same run), and fp32 vs INT8 themselves are within noise of each other. Confirms what was
+   already suspected: the `person` gap is a data/model problem (31:1 class imbalance), not
+   something quantization makes better or worse.
+
+**Bonus cross-check, not one of the 3 questions but worth noting:** the fp32 ONNX mAP50 numbers
+(head 0.960, helmet 0.980) match the original `.pt` model's training-time AP50 (head 0.963, helmet
+0.982, 2026-10-09) almost exactly -- confirms the ONNX export itself didn't silently degrade
+accuracy, a question that was never directly checked before now.
