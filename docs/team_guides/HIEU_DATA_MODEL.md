@@ -3,6 +3,9 @@
 Đây là bản tổng hợp từ `RUNLOG.md`/`CHANGELOG.md` dành riêng cho phần Data & Model, để không phải
 lật lại cả file log mỗi lần hỏi "còn thiếu gì".
 
+> **Muốn làm luôn bước mAP thật (ưu tiên 1 dưới đây)?** Qua thẳng `docs/HIEU_ROBOFLOW_MAP_GUIDE.md`
+> — bản rút gọn chỉ có lệnh cần chạy + mẫu báo cáo kết quả.
+
 ## Trạng thái thật hiện tại
 
 - Model đang dùng: `models/helmet_v1_best.pt` (YOLOv8n, 30/30 epoch, Hard Hat Workers Dataset).
