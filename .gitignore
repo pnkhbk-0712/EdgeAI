@@ -7,6 +7,7 @@ data/samples/synthetic_parked_violation.mp4
 data/samples/events.jsonl
 models/smoketest/
 .venv/
+venv/
 signs_roboflow/
 data/ua_detrac_yolo/
 data/pilot_frames/
