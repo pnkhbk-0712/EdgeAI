@@ -1,4 +1,18 @@
-# Hạnh — Lead & Integration — việc cần làm tiếp (cập nhật 2026-10-16)
+# Hạnh — Lead & Integration — việc cần làm tiếp (cập nhật 2026-10-18)
+
+## Mới xong (2026-10-18) — Step 8 Ưu tiên 2, phần không cần rig/Pi
+
+Report mục 11 Ưu tiên 2 (Step 8, Ethical) nêu 3 gap: retention, appeal/correction mechanism,
+governance truy cập log. Cả 3 đã xong — **retention** đã có từ 2026-10-13 (report chưa cập nhật
+theo); **appeal/correction** giờ có script thật (`src/review_events.py`); **access governance**
+đã quyết định (chỉ team + safety officer xem log thô, báo cáo rộng hơn dùng
+`compliance_snapshot`). Chi tiết: `docs/EVENTS_GOVERNANCE.md`, `docs/RUNLOG.md` 2026-10-18.
+**Việc còn lại của bạn:** cập nhật điểm Step 8 (hiện 3.0/4, báo cáo nêu đúng 3 gap này) và mục 11
+Ưu tiên 2 trong `Project_Report_EdgeAI_Group9.docx` sau khi rà lại `EVENTS_GOVERNANCE.md`.
+
+Ưu tiên 3 (Step 4) phần "đo accuracy impact của INT8" cũng đã xong — mAP thật fp32 vs INT8 trên
+cả val set, xem `docs/team_guides/HIEU_DATA_MODEL.md`. Phần còn mở của Ưu tiên 3 (end-to-end
+latency trên Pi thật) vẫn chờ Hùng, không phải việc code/doc.
 
 ## Trạng thái thật hiện tại
 

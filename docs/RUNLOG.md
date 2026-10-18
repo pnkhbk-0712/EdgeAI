@@ -1086,3 +1086,26 @@ the old parking project's motorcycle class, 2026-09-18) is the direct lever.
 
 **Both now belong in the report's limitations section, Step 7 (monitoring/iteration) as planned
 future work, not as open TODOs for this cycle.**
+
+## 2026-10-18 -- Step 8 Ưu tiên 2 closed: retention + correction/appeal + access governance
+
+Report mục 11 (Ưu tiên hiệu chỉnh) named 3 open Step 8 gaps: retention policy, appeal/correction
+mechanism, governance on log access. All 3 are code-or-decision work, not blocked on physical
+rig/Pi access, so closed now rather than left for Hạnh to chase down separately:
+
+- **Retention:** already implemented 2026-10-13 (`EVENT_RETENTION_DAYS = 30` in
+  `src/demo_helmet.py`) -- the report text just hadn't been updated to reflect it.
+- **Correction/appeal:** new `src/review_events.py` -- CLI to mark a specific flagged event
+  (matched by `track_id` + `timestamp`, since no identity is attached to a track by design)
+  reviewed, with a `correction` (`confirmed`/`false_positive`) and note. Original event kept,
+  never edited/deleted -- audit trail stays complete. Self-tested against a throwaway events file
+  (not the real log): wrote 1 synthetic violation event, ran the mark-reviewed command, confirmed
+  `reviewed`/`correction`/`review_note`/`reviewed_at` were added and `--list-unreviewed` then
+  showed nothing pending.
+- **Access governance:** decided -- raw `helmet_events.jsonl` (per-event detail) stays
+  team+safety-officer-only for this prototype; aggregate `compliance_snapshot` events are what's
+  shareable more broadly, consistent with the "no raw video, only zone/timestamp/confidence"
+  privacy posture already in Step 8.
+
+Full writeup: `docs/EVENTS_GOVERNANCE.md`. Report action for Hạnh: update Step 8 score (was
+3.0/4, named these exact 3 gaps) and mục 11 Ưu tiên 2 status once reviewed.
