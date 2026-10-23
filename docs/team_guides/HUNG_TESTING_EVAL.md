@@ -1,4 +1,30 @@
-# Hùng — Testing & Evaluation — việc cần làm tiếp (cập nhật 2026-10-16)
+# Hùng — Testing & Evaluation — việc cần làm tiếp (cập nhật 2026-10-21)
+
+## Mới xong (2026-10-21) — benchmark_pi.py đủ 4/4 dòng + pipeline thật trên Pi
+
+```
+Format        imgsz   ms/frame    FPS     <300ms?
+ONNX fp32     640     472.1       2.1     no
+ONNX INT8     640     553.3       1.8     no
+ONNX fp32     416     234.4       4.3     YES
+ONNX fp32     320     129.7       7.7     YES
+```
+
+**Kết quả quyết định:** không cấu hình nào vừa đạt <300ms vừa còn detect đủ — 640 (duy nhất còn
+detect đủ 3 class) không đạt tốc độ (472/553ms); 416/320 đạt tốc độ nhưng đã mất detection (xem
+2026-10-16: 416 mất hết `head`, 320 mất hết mọi thứ). Đây đúng là nhánh "cả 2 đều không đạt" đã
+nêu sẵn ở mục dưới — bước tiếp theo (Coral USB Accelerator hoặc demo chạy laptop) giờ là quyết
+định của Hoàng/Hạnh, không phải việc đo thêm của bạn.
+
+Cũng đã chạy thật `demo_helmet.py --source test_loop.mp4` trên Pi — pipeline đầy đủ chạy được,
+không lỗi, 1.3 FPS (chậm hơn ~64% so với benchmark ONNX đơn lẻ cùng độ phân giải — cùng hướng với
+laptop, đóng việc #6 cũ). Nhiệt độ đo 2 lần sau tải liên tục (58.9°C, 47.2°C), `throttled=0x0` cả
+2 lần — không throttle, đóng việc #5 cũ. Chi tiết đầy đủ: `docs/RUNLOG.md` 2026-10-21.
+
+**Còn 1 việc chưa đóng:** `RASPI_CHECK_REPORT.md` Bước 3 (camera sanity check) — lần chạy trên
+dùng `test_loop.mp4` (video có sẵn), không phải camera thật (`source 0`). Cần chạy lại lệnh ở
+Bước 3 (`cv2.VideoCapture(0)`) để xác nhận camera thật + OS + Python stack hoạt động, trước khi
+coi phần cứng Pi là đã kiểm tra xong hoàn toàn.
 
 Thay cho `docs/PI_NEXT_STEP.md` (đã merge vào đây) — file đó đã xoá, mọi thứ liên quan Pi benchmark
 giờ nằm ở đây. `docs/PI_BENCHMARK_GUIDE.md` vẫn giữ, dùng khi cần hướng dẫn chi tiết từng bước

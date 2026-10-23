@@ -1,4 +1,16 @@
-# Hoàng — Deployment — việc cần làm tiếp (cập nhật 2026-10-16)
+# Hoàng — Deployment — việc cần làm tiếp (cập nhật 2026-10-21)
+
+## Mới xong (2026-10-21) — Hùng đã có đủ 4/4 dòng benchmark Pi thật, cần bạn chốt deploy format
+
+Kết quả thật (không còn phải chờ): **không cấu hình CPU-only nào trên Pi vừa đạt <300ms vừa còn
+detect đủ 3 class.** 640 fp32/INT8 (duy nhất còn detect đủ) đo được 472.1ms/553.3ms — cả 2 đều
+không đạt. 416/320 đạt tốc độ nhưng đã mất detection (416 mất hết `head`, 320 mất hết mọi thứ — đo
+từ trước, 2026-10-16). Chi tiết: `docs/RUNLOG.md` 2026-10-21, `docs/team_guides/HUNG_TESTING_EVAL.md`.
+
+**Việc cần quyết định (mục 4 dưới đây giờ mới có đủ dữ liệu để chốt):** theo đúng nhánh đã nêu sẵn
+ở guide cũ — hoặc (a) demo chính chạy trên laptop, Pi ghi vào report là hạn chế phần cứng đã biết,
+hoặc (b) xem Coral USB Accelerator nếu nhóm còn thời gian/ngân sách. Không có lựa chọn (c) "dùng Pi
+CPU-only" nữa — số liệu thật đã loại phương án đó.
 
 ## Trạng thái thật hiện tại
 

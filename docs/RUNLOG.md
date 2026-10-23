@@ -1109,3 +1109,60 @@ rig/Pi access, so closed now rather than left for Hạnh to chase down separatel
 
 Full writeup: `docs/EVENTS_GOVERNANCE.md`. Report action for Hạnh: update Step 8 score (was
 3.0/4, named these exact 3 gaps) and mục 11 Ưu tiên 2 status once reviewed.
+
+## 2026-10-21 -- Real Pi 4B results, full 4/4 benchmark_pi.py rows + first real end-to-end pipeline run (Hung)
+
+Both missing model files confirmed copied to the Pi (`ls -lh ~/EdgeAI/models/`, `helmet_v1_best.onnx`
+and `helmet_v1_best_int8.onnx` timestamped Oct 21 16:50). `benchmark_pi.py` now ran to completion,
+closing the item flagged 2026-10-16 as only 2/4 rows:
+
+```
+Format        imgsz   ms/frame    FPS     <300ms?
+ONNX fp32     640     472.1       2.1     no
+ONNX INT8     640     553.3       1.8     no
+ONNX fp32     416     234.4       4.3     YES
+ONNX fp32     320     129.7       7.7     YES
+```
+
+**This is the decision-forcing result the team has been waiting on.** Neither 640 config meets the
+<300ms target on the real Pi (fp32 472ms, INT8 553ms -- INT8 again slower than fp32 despite being
+smaller, a third confirmation of the same counter-intuitive pattern already seen on laptop x86 CPU,
+now also true on Pi's ARM CPU). The two configs that DO meet <300ms (416, 320) are the ones the
+2026-10-16 laptop box-count check already showed losing detection -- 416 found 0 `head` boxes on the
+benchmark image (the safety-critical class), 320 found 0 boxes of any class. So **no single
+CPU-only configuration on this Pi both meets the latency target and keeps working detection** --
+exactly the branch the guide (`docs/team_guides/HUNG_TESTING_EVAL.md` item 4) already named in
+advance: next step is Coral USB Accelerator (if budget/time allow) or running the main demo on
+laptop with the Pi documented as a known hardware limitation. This is a deploy decision for
+Hoàng/Hạnh, not resolved by this benchmark alone.
+
+**Thermal check across two separate sustained-load runs, no throttling either time:**
+`vcgencmd get_throttled` = `0x0` after both the `demo_helmet.py` run below (116s continuous) and the
+full `benchmark_pi.py` run (4 settings x 18 runs each). Temp readings: 41.3°C before benchmark_pi,
+47.2°C after; 41.8°C before the demo_helmet run, 58.9°C after. All well under the ~80°C Pi 4B
+throttle point -- closes the "more than one temp reading" gap flagged 2026-10-16 (that was a single
+reading at 43.4°C after 5 min). The under-spec 5V/2A power supply flagged in the original
+`RASPI_CHECK_REPORT.md` is still not fixed, but no undervoltage/throttle event was detected by
+`vcgencmd` during either of these two runs.
+
+**First real run of the full pipeline on the Pi** (not just standalone ONNX benchmark):
+`python3 demo_helmet.py --no-display --source test_loop.mp4` (test_loop.mp4, not a live camera --
+see camera gap below) -- 150 frames, 116.0s wall-clock = 1.3 FPS (773ms/frame), 3 violations
+flagged, event log written successfully including the 2026-10-18 `reviewed`/retention fields.
+Loaded `helmet_v1_best.onnx` (the fp32 640 model, demo_helmet.py's default) -- compared against this
+same run's own standalone benchmark_pi.py fp32@640 row (472.1ms/frame), the full pipeline
+(track() + class-smoothing + 2x zone-check) is **~64% slower** than standalone ONNX inference alone
+on the Pi (773.3ms vs 472.1ms). Same direction as the laptop finding (~110% slower there,
+`docs/CHANGELOG.md` 2026-10-13) -- a smaller relative overhead on Pi than on laptop, but confirms
+the gap is real on both platforms, not a laptop-only artifact. No crashes, no errors -- first
+confirmed working run of the actual deployed pipeline (not a standalone benchmark) on real ARM
+hardware.
+
+**Still open, not closed by this run:** `RASPI_CHECK_REPORT.md` Bước 3 (camera sanity check -- a
+live `cv2.VideoCapture(0)` frame) is still unchecked -- confirmed directly by Hùng's own report
+(`docs/HUNG_RUN_AND_REPORT.md`): "Pi chưa gắn camera" (no camera attached to the Pi yet). Also
+worth being precise about what `test_loop.mp4` actually is, per the same report: a 10-second loop
+of **one static image**, not varied real footage. So this run is solid evidence the pipeline runs
+without crashing on real ARM hardware and gives a real FPS/timing number, but the "3 violations
+flagged" and detection behavior should not be read as validating accuracy on varied real content
+-- same frame repeated, not a motion/domain-gap test.
