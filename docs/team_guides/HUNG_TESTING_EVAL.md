@@ -10,11 +10,20 @@ ONNX fp32     416     234.4       4.3     YES
 ONNX fp32     320     129.7       7.7     YES
 ```
 
-**Kết quả quyết định:** không cấu hình nào vừa đạt <300ms vừa còn detect đủ — 640 (duy nhất còn
-detect đủ 3 class) không đạt tốc độ (472/553ms); 416/320 đạt tốc độ nhưng đã mất detection (xem
-2026-10-16: 416 mất hết `head`, 320 mất hết mọi thứ). Đây đúng là nhánh "cả 2 đều không đạt" đã
-nêu sẵn ở mục dưới — bước tiếp theo (Coral USB Accelerator hoặc demo chạy laptop) giờ là quyết
-định của Hoàng/Hạnh, không phải việc đo thêm của bạn.
+> **ĐÍNH CHÍNH 2026-10-24:** đoạn "416/320 mất `head`" ở dưới (và kết luận "không cấu hình nào
+> dùng được" trước đó) chỉ dựa trên **1 ảnh**. Đo lại trên cả 1413 ảnh val: 416 giữ `head` AP50
+> 0.936 (recall 0.888), 320 giữ 0.896 (recall 0.845) — đều qua ngưỡng 0.80. Xem `docs/RUNLOG.md`
+> 2026-10-24. **416 (234ms trên Pi) là ứng viên chính.**
+
+**Kết quả:** 640 không đạt <300ms (472/553ms); 416/320 đạt (234/130ms) và — theo đo lại ở trên —
+vẫn giữ detection. Chưa biết: pipeline đầy đủ (không chỉ ONNX đơn lẻ) ở 416 có còn <300ms không
+(ước tính ~385ms theo tỉ lệ +64%, chưa đo).
+
+**Việc tiếp theo cho bạn (Hùng):** chạy trên Pi, lần lượt 2 lệnh, gửi lại output:
+```
+python3 demo_helmet.py --no-display --source ~/EdgeAI/data/samples/test_loop.mp4 --model ~/EdgeAI/models/helmet_v1_best_416.onnx
+python3 demo_helmet.py --no-display --source ~/EdgeAI/data/samples/test_loop.mp4 --model ~/EdgeAI/models/helmet_v1_best_320.onnx
+```
 
 Cũng đã chạy thật `demo_helmet.py --source test_loop.mp4` trên Pi — pipeline đầy đủ chạy được,
 không lỗi, 1.3 FPS (chậm hơn ~64% so với benchmark ONNX đơn lẻ cùng độ phân giải — cùng hướng với

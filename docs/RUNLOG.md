@@ -1166,3 +1166,31 @@ of **one static image**, not varied real footage. So this run is solid evidence 
 without crashing on real ARM hardware and gives a real FPS/timing number, but the "3 violations
 flagged" and detection behavior should not be read as validating accuracy on varied real content
 -- same frame repeated, not a motion/domain-gap test.
+
+## 2026-10-24 -- Correction: 416/320 DO keep `head` on the full val set (Hieu), reverses the 2026-10-16/21 conclusion
+
+The 2026-10-16 claim "416 loses all `head`, 320 detects nothing" came from **one image**
+(`val_batch0_pred.jpg`) and was then carried into the 2026-10-21 conclusion ("no CPU-only config
+both passes <300ms and keeps detection"). Never measured dataset-wide until now. Ran `yolo val` on
+the full 1413-image val set, using the actual fixed-size ONNX files for 416/320 (480 only as the
+dynamic `.pt`, no 480 ONNX exists yet):
+
+| imgsz | Pi ms/frame (2026-10-21) | head AP50 | head Recall | helmet AP50 | all mAP50 |
+|---|---|---|---|---|---|
+| 640 fp32 | 472.1 (fails <300) | 0.960 | 0.926 | 0.980 | 0.660 |
+| 480 (.pt) | not exported / not measured | 0.950 | 0.910 | 0.975 | 0.653 |
+| 416 ONNX | 234.4 (passes) | 0.936 | 0.888 | 0.967 | 0.644 |
+| 320 ONNX | 129.7 (passes) | 0.896 | 0.845 | 0.936 | 0.619 |
+
+Both 416 and 320 clear the project's 0.80 AP50 bar for head/helmet dataset-wide. The one-image check
+was real (that image's 3 small heads are missed at 416) but it was a worst-case sample, not the
+typical case. **Cost is still real:** head recall falls 0.926 -> 0.888 (416) / 0.845 (320), i.e. more
+missed no-helmet cases, the costlier failure for this system. **416 is the sensible candidate**
+(small recall loss, 66ms margin under target); 320 loses ~8 recall points.
+
+**Not yet answered:** (1) these are dataset-val numbers, not the demo rig's domain -- must re-check
+on real rig frames; (2) <300ms was met by standalone inference only. The full pipeline was ~64% slower
+than standalone on the Pi (773 vs 472ms), so 416 end-to-end is roughly 385ms by that ratio --
+an estimate, **unmeasured**. Next: Hung runs `demo_helmet.py --model models/helmet_v1_best_416.onnx`
+(and 320) on the Pi. If end-to-end still misses 300ms, levers not yet tried: 480 ONNX export,
+detect every 2nd frame, crop to the zone region.

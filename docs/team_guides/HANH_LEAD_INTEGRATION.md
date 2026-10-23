@@ -2,12 +2,13 @@
 
 ## Mới xong (2026-10-21) — Hùng đã có đủ 4/4 dòng benchmark Pi, quyết định deploy giờ không còn bị chặn
 
-Kết quả thật: không cấu hình CPU-only nào trên Pi vừa đạt <300ms vừa còn detect đủ — 640 (duy
-nhất còn đủ detection) đo 472ms (fp32)/553ms (INT8), cả 2 đều không đạt; 416/320 đạt tốc độ nhưng
-mất detection. Đây là input cuối cùng Ưu tiên 1 (Step 6) và Ưu tiên 3 (Step 4) trong report đang
-chờ — xem `docs/RUNLOG.md` 2026-10-21, `docs/team_guides/HOANG_DEPLOYMENT.md`. **Việc của bạn:**
-chốt cùng Hoàng giữa (a) demo chạy laptop + Pi ghi hạn chế phần cứng, hoặc (b) Coral USB
-Accelerator — rồi cập nhật report Step 4/6 theo quyết định đó. Bước 3 camera sanity check trên Pi
+Kết quả thật: 640 đo 472ms (fp32)/553ms (INT8) trên Pi, không đạt <300ms. **ĐÍNH CHÍNH
+2026-10-24:** bản trước nói 416/320 "mất detection" (suy từ 1 ảnh) — sai. Đo lại trên cả val set,
+416 giữ `head` AP50 0.936 (recall 0.888 vs 0.926 ở 640), 320 giữ 0.896; 416 chạy 234ms trên Pi.
+**Không cần laptop hay Coral — hướng đi hiện tại là Pi CPU-only ở 416**, còn chờ Hùng đo pipeline
+đầy đủ (ước tính ~385ms, chưa đo) và Hoàng kiểm tra trên rig thật. Xem `docs/RUNLOG.md`
+2026-10-24. **Việc của bạn:** khi Hùng gửi số pipeline ở 416, cập nhật report Step 4/6 theo số
+đó (và sửa các chỗ report đang ghi 416/320 mất detection). Bước 3 camera sanity check trên Pi
 vẫn còn thiếu (lần chạy vừa rồi dùng video file, không phải camera thật) — không chặn quyết định
 deploy, nhưng vẫn cần làm trước khi report coi phần cứng Pi là đã kiểm tra xong.
 

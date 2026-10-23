@@ -2,15 +2,16 @@
 
 ## Mới xong (2026-10-21) — Hùng đã có đủ 4/4 dòng benchmark Pi thật, cần bạn chốt deploy format
 
-Kết quả thật (không còn phải chờ): **không cấu hình CPU-only nào trên Pi vừa đạt <300ms vừa còn
-detect đủ 3 class.** 640 fp32/INT8 (duy nhất còn detect đủ) đo được 472.1ms/553.3ms — cả 2 đều
-không đạt. 416/320 đạt tốc độ nhưng đã mất detection (416 mất hết `head`, 320 mất hết mọi thứ — đo
-từ trước, 2026-10-16). Chi tiết: `docs/RUNLOG.md` 2026-10-21, `docs/team_guides/HUNG_TESTING_EVAL.md`.
+Kết quả thật: 640 fp32/INT8 đo được 472.1ms/553.3ms trên Pi — không đạt <300ms. **ĐÍNH CHÍNH
+2026-10-24:** bản trước của mục này nói 416/320 "mất detection" — đó là kết luận từ 1 ảnh và đã
+sai. Đo lại trên cả val set: 416 giữ `head` AP50 0.936 (recall 0.888), 320 giữ 0.896 (0.845), vs 640
+là 0.960 (0.926). **Vậy chạy trên Pi CPU-only ở 416 là khả thi** (234ms standalone), không cần
+laptop hay Coral. Chi tiết + bảng đầy đủ: `docs/RUNLOG.md` 2026-10-24.
 
-**Việc cần quyết định (mục 4 dưới đây giờ mới có đủ dữ liệu để chốt):** theo đúng nhánh đã nêu sẵn
-ở guide cũ — hoặc (a) demo chính chạy trên laptop, Pi ghi vào report là hạn chế phần cứng đã biết,
-hoặc (b) xem Coral USB Accelerator nếu nhóm còn thời gian/ngân sách. Không có lựa chọn (c) "dùng Pi
-CPU-only" nữa — số liệu thật đã loại phương án đó.
+**Việc cần chốt:** (1) chờ Hùng đo pipeline đầy đủ ở 416/320 trên Pi (ước tính ~385ms ở 416,
+chưa đo); (2) khi có rig + camera, kiểm tra 416 trên khung hình thật của rig — số trên là val set
+của dataset, không phải rig của mình, và recall `head` giảm ~4 điểm so với 640 (nhiều ca "không
+mũ" bị bỏ sót hơn).
 
 ## Trạng thái thật hiện tại
 
