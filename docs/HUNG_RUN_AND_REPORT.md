@@ -64,16 +64,21 @@ buộc nếu Pi không cài kịp hoặc hết thời gian.)
 
 Bảng đầy đủ 4 dòng (copy nguyên output benchmark_pi.py):
 Format        imgsz   ms/frame    FPS     <300ms?
-ONNX fp32     640     ___         ___     ___
-ONNX INT8     640     ___         ___     ___
-ONNX fp32     416     256.9       3.9     YES
-ONNX fp32     320     127.6       7.8     YES
+ONNX fp32     640     472.1       2.1     no
+ONNX INT8     640     553.3       1.8     no
+ONNX fp32     416     234.4       4.3     YES
+ONNX fp32     320     129.7       7.7     YES
 
-Nhiệt độ lúc khởi động: ___°C
-Nhiệt độ sau vài phút chạy liên tục: ___°C
+Nhiệt độ lúc khởi động: 41.8°C
+Nhiệt độ sau vài phút chạy liên tục: 58.9°C (sau ~2 phút chạy demo)
+vcgencmd get_throttled: 0x0 (không giảm xung)
 
-(Nếu đã làm Bước 4) demo_helmet.py --no-display chạy được: Có / Không
-  Nếu chạy được, FPS/ms-per-frame in ra cuối: ___
+demo_helmet.py --no-display chạy được: Có
+  FPS/ms-per-frame: 1.3 FPS, ~773 ms/frame (150 khung, 116.0 s)
+  Điều kiện đo: video lặp 10 s từ 1 ảnh tĩnh (không phải camera), 540x720 @ 15fps,
+  model helmet_v1_best.onnx fp32 @ 640, CPUExecutionProvider.
+
+Ghi chú: Pi chưa gắn camera nên Bước 3 của RASPI_CHECK_REPORT.md vẫn chưa làm được.
 ```
 
 ## Quyết định tiếp theo tùy kết quả (không cần tự quyết, chỉ cần báo đúng số)
