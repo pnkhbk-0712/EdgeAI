@@ -1141,9 +1141,12 @@ Hoàng/Hạnh, not resolved by this benchmark alone.
 full `benchmark_pi.py` run (4 settings x 18 runs each). Temp readings: 41.3°C before benchmark_pi,
 47.2°C after; 41.8°C before the demo_helmet run, 58.9°C after. All well under the ~80°C Pi 4B
 throttle point -- closes the "more than one temp reading" gap flagged 2026-10-16 (that was a single
-reading at 43.4°C after 5 min). The under-spec 5V/2A power supply flagged in the original
-`RASPI_CHECK_REPORT.md` is still not fixed, but no undervoltage/throttle event was detected by
-`vcgencmd` during either of these two runs.
+reading at 43.4°C after 5 min). `RASPI_CHECK_REPORT.md` (last edited 2026-10-09) still records a
+5V/2A supply; Hieu later reported (2026-10-24, verbally, not in the repo) that Hung has since
+switched to a 5V/3A adapter -- **unconfirmed whether that was before or after these runs.** No
+undervoltage/throttle event was detected by `vcgencmd` (`0x0`) during either of these two runs
+regardless. Action: Hung confirms the adapter rating and the date he swapped it, then
+`RASPI_CHECK_REPORT.md` Bước 1 gets updated.
 
 **First real run of the full pipeline on the Pi** (not just standalone ONNX benchmark):
 `python3 demo_helmet.py --no-display --source test_loop.mp4` (test_loop.mp4, not a live camera --
