@@ -14,3 +14,10 @@ data/pilot_frames/
 docs/audit_report.txt
 data/helmet_roboflow/
 data/samples/helmet_events.jsonl
+
+# big/derived datasets (re-creatable from src/ scripts or re-downloadable; sources in docs/DATASET_AUDIT_PPE.md)
+data/ppe_sources/
+data/ppe_merged/
+data/helmet_roles/
+data/helmet_roles_by_class/
+data/helmet_suplement/

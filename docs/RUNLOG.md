@@ -1197,3 +1197,77 @@ than standalone on the Pi (773 vs 472ms), so 416 end-to-end is roughly 385ms by 
 an estimate, **unmeasured**. Next: Hung runs `demo_helmet.py --model models/helmet_v1_best_416.onnx`
 (and 320) on the Pi. If end-to-end still misses 300ms, levers not yet tried: 480 ONNX export,
 detect every 2nd frame, crop to the zone region.
+
+## 2026-10-25 -- Pivot to a 4-item PPE system: data merged, person-centric logic written, nothing trained yet (Hieu)
+
+Supervisor feedback (week-11 consult): a helmet is a small part of PPE, colour is irrelevant -- build a full PPE system.
+Decision: helmet + hi-vis vest + gloves + goggles (boots out of scope). Details: plan in the session, ledger in
+`docs/DATASET_AUDIT_PPE.md`.
+
+**Done (all measured/executed, not estimated):**
+- Downloaded two sources to `data/ppe_sources/` (D: only): Roboflow PPEv5 v16 (CC BY 4.0, 330 MB) and Ultralytics
+  Construction-PPE (AGPL-3.0, 178 MB). Audit: 0 format errors in both.
+- PPEv5 is **close-up body-part photos**, not worksite scenes (`no_*` = bare feet/eyes/hands/head/torso); its valid
+  split has a different class mix from its train (valid: 3222 gloves, 2 helmet; train: 138 gloves, 140 helmet) and it has
+  only 142 helmet + 75 vest boxes -> supplement for gloves/goggles only.
+- Construction-PPE is real worksite/staged photos with proper splits. 21% of its val/test images (30/143, 30/141)
+  have a near-twin in train (video frames) -> dropped from eval.
+- `src/build_ppe_dataset.py` -> `data/ppe_merged/`: train 6772 imgs, valid 113, test 111 (small: eval is
+  Construction-PPE only, twin-free). 9 classes: person, helmet, no_helmet, vest, no_vest, gloves, no_gloves, goggles,
+  no_goggles. `none` (Construction-PPE) mapped to no_vest -- inferred from sample crops, **unverified**. Audit 0 issues.
+- Wiring check: 1-epoch/10%-data yolov8n run on `data_cppe.yaml` trains and validates end to end (mAP50 0.07, meaningless).
+- Code: `src/ppe_compliance.py` (person-centric assessment, per-(track,item) smoothing), `demo_helmet.py` rewritten
+  around it, `REQUIRED_ITEMS` in `helmet_zone_configs.py`, `review_events.py` reads old+new events, `audit_dataset.py` takes a
+  dir. 9 unit tests pass (+8 zone tests). **The loop was only smoke-run with the old helmet model, which detects no
+  `person` (AP50 ~0.04) -> 0 violations; it has not run with a person+PPE model.**
+
+**Open:** train ablation A (Construction-PPE only) vs C (merged) per `docs/PPE_TRAINING.md`; per-class AP50; Pi benchmark;
+rig frames. Nothing about gloves/goggles quality is known yet.
+
+## 2026-10-25 (later) -- First PPE models trained: A (Construction-PPE only) vs C' (+2500 sampled PPEv5) (Hieu)
+
+Trained on this laptop (RTX 4060 Laptop, venv `_tools/venv_cuda` on D:, `src/train_guard.py` thermal guard, GPU 66-70 C throughout):
+A = `data_cppe.yaml` 80 epochs (10 min); C' = `data_sampled.yaml` 60 epochs (22 min), both yolov8n @640 batch 16. Evaluated on the
+Construction-PPE **test split, 111 images** (twin-free, tiny -- `no_*` classes have only 33-61 boxes, so +-noise is large).
+
+AP50 per class, test, imgsz 640 (416 in brackets for C'):
+
+| class | boxes | A | C' | C' @416 |
+|---|---|---|---|---|
+| all (mAP50) | 856 | 0.512 | **0.559** | 0.539 |
+| person | 203 | 0.783 | 0.790 | 0.788 |
+| helmet | 163 | 0.922 | 0.914 | 0.910 |
+| no_helmet | 40 | 0.095 | 0.200 | 0.155 |
+| vest | 145 | 0.861 | 0.863 | 0.869 |
+| no_vest | 61 | 0.360 | 0.462 | 0.497 |
+| gloves | 115 | 0.714 | 0.723 | 0.661 |
+| no_gloves | 58 | 0.111 | 0.118 | 0.114 |
+| goggles | 38 | 0.708 | 0.772 | 0.638 |
+| no_goggles | 33 | 0.051 | 0.191 | 0.221 |
+
+A at 480/416 had mAP50 0.512/0.515 (vs 0.512 @640): **resolution barely matters for this model**, unlike the old helmet model. C' is equal or
+better than A on every class (largest: goggles +0.064, no_goggles +0.14, no_helmet +0.105, no_vest +0.10) -> C' kept as `models/ppe_v1_best.pt`
+(A kept as `ppe_v1_A_best.pt`). Not verified: whether the gain is real or noise on 111 images.
+
+**System-level (per person x item, `src/eval_ppe_system.py`, GT person boxes, conf >= 0.3, C')** -- does "missing" get called right?
+
+| item | GT present/missing | explicit `no_*` class | absence (no positive found) |
+|---|---|---|---|
+| helmet | 142/41 | P 1.00 R 0.24 | P 0.91 R 1.00 |
+| goggles | 37/34 | P 1.00 R 0.09 | P 0.79 R 0.97 |
+| vest | 132/47 | P 0.92 R 0.77 | P 0.72 R 1.00 |
+| gloves | 65/36 | P 1.00 R 0.11 | P 0.74 R 0.97 |
+
+(A, same test: absence R 1.00 everywhere, P 0.89/0.79/0.73/0.67; explicit helmet R 0.27, goggles 0.06, gloves 0.14, vest 0.85.)
+**Decision:** `helmet_zone_configs.INFER_ABSENT = (helmet, goggles, gloves)`; vest uses the explicit `no_vest`. The test split has a far higher
+missing-rate than a real site (29% helmet, 48% goggles), so real precision will be lower than the P above.
+
+**End-to-end demo** ran with the A model on a synthetic 8 s clip (one still test photo): events `ppe_violation` with `missing_item` and zone
+logged as designed. Finding: the DRAFT zone polygons leave a gap between y=0.472 (high-risk bottom) and y=0.556 (normal top); a person whose box
+centre falls there belongs to no zone -> no event. Calibrate on rig frames.
+
+**Exported** `models/ppe_v1_best_640.onnx`, `ppe_v1_best_416.onnx` (fp32, opset 12). Laptop CPU benchmark (not the Pi): 25.1 ms @640, 10.3 ms @416.
+`benchmark_pi.py --ppe` runs those two. Pi numbers: **not measured yet** (Hung).
+
+**Open / not claimed:** Pi latency of the PPE model; any real-rig frames; whether the `none` -> `no_vest` mapping is right; person-detection quality
+in crowded scenes (not tested); gloves/goggles at distance (test images are mostly close/medium).

@@ -33,8 +33,10 @@ Setup on the Pi (once):
     # and one real image to benchmark against, e.g. docs/train_helmet/val_batch0_pred.jpg
 
 Usage (on the Pi):
-    python3 benchmark_pi.py
+    python3 benchmark_pi.py          # helmet_v1 files
+    python3 benchmark_pi.py --ppe    # ppe_v1_best_640.onnx + ppe_v1_best_416.onnx
 """
+import sys
 import time
 from pathlib import Path
 
@@ -52,6 +54,12 @@ VARIANTS = [
     ("ONNX INT8", "helmet_v1_best_int8.onnx", 640),
     ("ONNX fp32", "helmet_v1_best_416.onnx", 416),
     ("ONNX fp32", "helmet_v1_best_320.onnx", 320),
+]
+# 2026-10-25: 4-item PPE model (9 classes) -- run with `python3 benchmark_pi.py --ppe`. fp32 only (INT8 was
+# slower on the Pi) and 640/416 only: the PPE model keeps its positive-class AP at 416 (docs/RUNLOG.md 2026-10-25).
+VARIANTS_PPE = [
+    ("ONNX fp32", "ppe_v1_best_640.onnx", 640),
+    ("ONNX fp32", "ppe_v1_best_416.onnx", 416),
 ]
 N_WARMUP = 3
 N_RUNS = 15  # fewer than the laptop script -- a slow Pi run shouldn't take forever to benchmark
@@ -81,7 +89,7 @@ def main():
     print(f"{'Format':<14}{'imgsz':<8}{'ms/frame':<12}{'FPS':<8}{'<300ms?':<8}")
 
     results = []
-    for name, filename, imgsz in VARIANTS:
+    for name, filename, imgsz in (VARIANTS_PPE if "--ppe" in sys.argv else VARIANTS):
         path = MODELS / filename
         if not path.exists():
             print(f"{name:<14}{imgsz:<8}[missing: {filename} -- skipped]")

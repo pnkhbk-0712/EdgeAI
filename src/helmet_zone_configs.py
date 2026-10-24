@@ -42,8 +42,26 @@ HIGH_RISK_DWELL_SECONDS = 1.0
 # Normal zone: a little debounce so a momentary head-turn/occlusion doesn't false-trigger.
 NORMAL_DWELL_SECONDS = 3.0
 
-# Roboflow's YOLOv8 export orders classes alphabetically by default: head, helmet, person.
-# CONFIRM this against the actual downloaded data/helmet_roboflow/data.yaml before trusting it --
-# see the note printed by src/download_helmet_data.py.
+# PPE items that must be worn in each zone (2026-10-24). A GROUP ASSUMPTION, not a rule from the
+# law: QCVN 18:2021/BXD 2.19.1.1 only says PPE must fit the job and its hazards, so which items a
+# zone requires is a site decision -- change it here. Items the loaded model cannot detect are
+# skipped at run time (src/ppe_compliance.py), so the old helmet-only model still runs.
+# Names: helmet | vest | gloves | goggles.
+REQUIRED_ITEMS = {
+    "high_risk": ["helmet", "vest", "gloves", "goggles"],
+    "normal": ["helmet", "vest"],
+}
+
+# Items judged "missing" when a large-enough person simply has no evidence for them (no positive box in the
+# body region). Chosen from a measured comparison on the Construction-PPE test set (ppe_A, conf 0.3, GT person
+# boxes; docs/RUNLOG.md 2026-10-25): explicit no_* classes catch only 6-27% of missing helmet/goggles/gloves
+# (AP50 of those classes is 0.05-0.11), absence catches 100% at precision 0.67-0.89; for the vest the explicit
+# no_vest class is the better trade (R 0.85 / P 0.91 vs R 1.00 / P 0.73), so it is not listed. Re-measure with
+# src/eval_ppe_system.py after retraining.
+INFER_ABSENT = ("helmet", "goggles", "gloves")
+
+# LEGACY (3-class helmet_v1 model, used by benchmark_end_to_end.py only): demo_helmet.py now reads
+# class names from model.names instead of this table. Roboflow's export orders classes
+# alphabetically (head, helmet, person); confirm against data/helmet_roboflow/data.yaml.
 CLASS_NAMES = {0: "head", 1: "helmet", 2: "person"}
 NO_HELMET_CLASS_ID = 0  # "head" detected without a helmet on it

@@ -1,4 +1,15 @@
-# Hùng — Testing & Evaluation — việc cần làm tiếp (cập nhật 2026-10-21)
+# Hùng — Testing & Evaluation — việc cần làm tiếp (cập nhật 2026-10-25)
+
+## MỚI (2026-10-25) — Model PPE 4 món đã có, cần đo trên Pi thật
+
+Model mới `ppe_v1` (mũ, áo phản quang, găng tay, kính) đã train xong (xem `docs/RUNLOG.md` 2026-10-25). Việc của bạn:
+1. Copy 2 file từ laptop `models/` sang `models/` trên Pi: `ppe_v1_best_640.onnx`, `ppe_v1_best_416.onnx`.
+2. `python3 benchmark_pi.py --ppe` → gửi lại cả bảng (2 dòng) + nhiệt độ.
+3. Chạy pipeline thật: `python3 demo_helmet.py --no-display --source <video> --model models/ppe_v1_best_416.onnx` (rồi 640) → gửi FPS/ms mỗi khung và số sự kiện.
+Chưa có số đo Pi nào cho model này; laptop CPU chỉ là 25 ms (640) / 10 ms (416), không phải số của Pi.
+
+---
+
 
 ## Mới xong (2026-10-21) — benchmark_pi.py đủ 4/4 dòng + pipeline thật trên Pi
 

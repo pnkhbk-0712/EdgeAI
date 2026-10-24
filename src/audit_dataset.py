@@ -21,13 +21,18 @@ data/helmet_roboflow/data.yaml, and class order confirmed to match CLASS_NAMES a
 src/compare_int8_accuracy.py and src/benchmark_end_to_end.py).
 """
 import os
+import sys
 from pathlib import Path
 
 import cv2
+import yaml
 
-ROOT = Path(__file__).resolve().parent.parent / "data" / "helmet_roboflow"
+# 2026-10-24: dataset dir is an argument (default: the helmet set) and class names come from its
+# data.yaml, so the same audit covers data/ppe_merged/ and any downloaded source set.
+ROOT = Path(sys.argv[1]) if len(sys.argv) > 1 else Path(__file__).resolve().parent.parent / "data" / "helmet_roboflow"
 REPORT_OUT = Path(__file__).resolve().parent.parent / "docs" / "audit_report.txt"
-NAMES = ["head", "helmet", "person"]
+_names = yaml.safe_load((ROOT / "data.yaml").read_text(encoding="utf-8"))["names"]
+NAMES = [_names[k] for k in sorted(_names)] if isinstance(_names, dict) else list(_names)
 
 
 def main():
