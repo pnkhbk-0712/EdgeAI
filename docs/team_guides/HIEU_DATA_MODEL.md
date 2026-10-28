@@ -1,4 +1,17 @@
-# Hiếu — Data & Model — việc cần làm tiếp (cập nhật 2026-10-17)
+# Hiếu — Data & Model — việc cần làm tiếp (cập nhật 2026-10-28)
+
+## MỚI (2026-10-25) — Pivot sang hệ thống PPE 4 món; model `ppe_v1` đã train (commit `9d5f681`, chưa push)
+
+Thầy (tuần 11): mũ chỉ là cấu phần nhỏ, màu mũ không có ý nghĩa → làm đủ mũ + áo phản quang + găng tay + kính. Phần màu/vai trò mũ chuyển phụ lục.
+- **Dữ liệu** (`data/ppe_merged/`, 9 lớp): Construction-PPE (AGPL-3.0) + PPEv5 v16 (CC BY 4.0). Sổ nguồn + giấy phép: `docs/DATASET_AUDIT_PPE.md`. Val/test chỉ lấy từ Construction-PPE, đã bỏ ảnh gần giống train (dHash).
+- **Model** `models/ppe_v1_best.pt` (cấu hình C': 1132 ảnh Construction-PPE + 2500 ảnh PPEv5 cân bằng lớp). mAP50 test (111 ảnh, nhỏ/nhiễu) **0.559**; A (chỉ Construction-PPE) 0.512. Theo lớp: helmet 0.91, vest 0.86, gloves 0.72, goggles 0.77, person 0.79; **lớp `no_*` yếu** (no_helmet 0.20, no_gloves 0.12, no_goggles 0.19, no_vest 0.46).
+- **Vì vậy** "thiếu món" được suy từ *không thấy món đó* trên người đủ lớn (helmet/goggles/gloves; `INFER_ABSENT` trong `helmet_zone_configs.py`), riêng vest dùng lớp `no_vest`. Đo cấp hệ thống (`src/eval_ppe_system.py`): precision 0.72–0.91, recall 0.97–1.00; tập test có tỉ lệ thiếu cao hơn thực tế nên precision thật sẽ thấp hơn.
+- Độ phân giải gần như không ảnh hưởng (mAP50 0.559 @640 → 0.539 @416). ONNX: `ppe_v1_best_640.onnx`, `ppe_v1_best_416.onnx`. Laptop CPU 25/10 ms — **chưa có số Pi**.
+- **Chưa kiểm chứng:** `none` → `no_vest` là suy luận; găng/kính ở xa; cảnh đông người; chưa có khung hình rig thật.
+- Việc kế tiếp của Hiếu: viết lại báo cáo Word Step 1/2 quanh PPE 4 món (đưa màu/vai trò xuống phụ lục; thêm biểu đồ AP theo lớp, sổ nguồn/giấy phép gồm AGPL-3.0 và ghi nguồn CC BY) + script 5 phút mới; sau khi Hoàng có khung hình rig → đo lại trên tập rig. Tuỳ chọn: thêm dữ liệu (SH17 là CC BY-NC-SA, RamcoMills PPEs, ảnh có giấy phép rõ).
+- Runbook: `docs/PPE_TRAINING.md`. Log: `docs/RUNLOG.md` 2026-10-25.
+
+> Các mục bên dưới là của model mũ cũ `helmet_v1` (3 lớp) — vẫn đúng cho model đó nhưng **không còn là model chính**.
 
 Đây là bản tổng hợp từ `RUNLOG.md`/`CHANGELOG.md` dành riêng cho phần Data & Model, để không phải
 lật lại cả file log mỗi lần hỏi "còn thiếu gì".

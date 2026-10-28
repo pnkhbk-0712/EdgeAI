@@ -1,4 +1,14 @@
-# Hạnh — Lead & Integration — việc cần làm tiếp (cập nhật 2026-10-21)
+# Hạnh — Lead & Integration — việc cần làm tiếp (cập nhật 2026-10-28)
+
+## MỚI (2026-10-25) — Dự án pivot sang PPE 4 món (mũ, áo phản quang, găng tay, kính)
+
+Theo góp ý thầy tuần 11. Code + model + tài liệu đã commit `9d5f681` trên nhánh `helmet-safety-pivot` (**chưa push, chưa PR vào main**). Chi tiết số liệu: `docs/team_guides/HIEU_DATA_MODEL.md`, `docs/RUNLOG.md` 2026-10-25.
+- Đã có: `src/ppe_compliance.py` (đánh giá theo từng người, theo vùng cơ thể), `demo_helmet.py` viết lại theo người (sự kiện `ppe_violation` + `missing_item`), `review_events.py --item`, model `ppe_v1` (mAP50 0.559 trên 111 ảnh test; `no_*` yếu nên "thiếu" suy từ không thấy món), test 18/18 pass.
+- **Cần bạn quyết định:** (1) `REQUIRED_ITEMS` trong `helmet_zone_configs.py` — hiện high_risk = 4 món, normal = mũ + áo, đó là *giả định nhóm* (QCVN 18:2021/BXD 2.19.1.1 chỉ nói PTBVCN theo công việc/nguy cơ); (2) đồng ý push nhánh / mở PR; (3) giấy phép: Construction-PPE là AGPL-3.0, PPEv5 là CC BY 4.0 → báo cáo phải ghi nguồn.
+- **Báo cáo Word `Project_Report_EdgeAI_Group9.docx` chưa cập nhật theo PPE** (Hiếu không sửa file của bạn). Cần sửa: phạm vi/Step 1 (4 món), Step 2 (dữ liệu, sổ nguồn), Step 4/6 (model PPE, số Pi chưa đo), Step 8 (log theo món). Bản nháp Step 1/2 của Hiếu: `docs/BaoCao_Tuan11_Step1_Step2_v5.docx` (chưa theo PPE 4 món, sẽ viết lại).
+- Chưa có: số Pi cho `ppe_v1` (chờ Hùng), khung hình rig thật (chờ Hoàng), tập test thực tế. Không trích số model mũ cũ (`helmet_v1`) làm kết quả hệ thống.
+
+> Các mục bên dưới là trạng thái trước pivot (model mũ `helmet_v1`); đọc cùng phần MỚI ở trên.
 
 ## Mới xong (2026-10-21) — Hùng đã có đủ 4/4 dòng benchmark Pi, quyết định deploy giờ không còn bị chặn
 

@@ -1,4 +1,17 @@
-# Hoàng — Deployment — việc cần làm tiếp (cập nhật 2026-10-21)
+# Hoàng — Deployment — việc cần làm tiếp (cập nhật 2026-10-28)
+
+## MỚI (2026-10-25) — Hệ thống đổi sang PPE 4 món, rig cần thêm đồ
+
+**Làm theo từng bước: `docs/RIG_BUILD_GUIDE.md`** (chuẩn bị → canh vùng → chụp ≈100 khung → chạy demo → gửi lại). Công cụ: `python src/capture_rig_frames.py --tag <kịch bản>`.
+
+Model mới `ppe_v1` (mũ, áo phản quang, găng tay, kính) thay `helmet_v1`; `demo_helmet.py` giờ đánh giá theo từng người và báo `ppe_violation` kèm `missing_item`. Model mũ cũ **không dùng được** cho demo mới (không có lớp `person` đủ tốt).
+1. **Rig:** hình nộm/người đóng cần có/không có **áo phản quang, găng tay, kính** (không chỉ mũ). Găng/kính là vật nhỏ, model kém hơn mũ/áo khi ở xa → đặt người đủ lớn trong khung (cao ≥ 12% chiều cao khung, dưới mức đó hệ thống không đánh giá).
+2. **Canh vùng:** polygon trong `helmet_zone_configs.py` vẫn là DRAFT và **có khe hở y 0.472–0.556** (người có tâm ở đó không thuộc vùng nào → không có sự kiện). Canh lại trên khung hình rig thật, bỏ khe này. `REQUIRED_ITEMS` (mỗi vùng bắt buộc món nào) là giả định nhóm, chốt với Hạnh.
+3. **Chụp 50–150 khung hình thật từ rig** (đủ tổ hợp thiếu/đủ từng món, nhiều khoảng cách) cho Hiếu làm tập kiểm tra giữ riêng — không đưa vào train.
+4. **Chạy demo thật:** `python src/demo_helmet.py --model models/ppe_v1_best_640.onnx` (hoặc `_416.onnx`) với camera + rig; ghi lại sự kiện sai/thiếu.
+- Pi: chờ Hùng đo `benchmark_pi.py --ppe` (chưa có số) rồi mới chốt 640 hay 416. Laptop CPU 25/10 ms không phải số của Pi.
+
+> Các mục bên dưới viết trước pivot (model mũ `helmet_v1`); số Pi 640/416 ở đó là của model cũ.
 
 ## Mới xong (2026-10-21) — Hùng đã có đủ 4/4 dòng benchmark Pi thật, cần bạn chốt deploy format
 

@@ -21,3 +21,6 @@ data/ppe_merged/
 data/helmet_roles/
 data/helmet_roles_by_class/
 data/helmet_suplement/
+
+# rig test frames (people on camera; send to Hieu by hand, never commit)
+data/rig_frames/
