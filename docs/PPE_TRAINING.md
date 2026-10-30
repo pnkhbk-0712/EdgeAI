@@ -39,3 +39,15 @@ yolo detect val model=<best.pt> data=<yaml> split=test imgsz=640     # lặp l�
 ```
 Ghi bảng AP50/recall từng lớp (A vs C, 640/480/416) vào `docs/RUNLOG.md`; chép `best.pt` về `models/ppe_v1_best.pt`, xuất ONNX fp32
 (`src/export_helmet_sizes.py` chỉnh tên model), rồi nhờ Hùng chạy `benchmark_pi.py` và `demo_helmet.py --model` trên Pi.
+
+## Cấu hình C″ — thêm SH17 (2026-10-30), để nâng găng/kính
+`data_sh17.yaml` = C′ (Construction-PPE 1.132 + 2.500 PPEv5) + 2.538 ảnh SH17 có găng hoặc kính (đã bỏ 117 ảnh thiếu nhãn mũ/áo), thu nhỏ cạnh dài 960 px (`src/prep_sh17.py`).
+Tổng 6.170 ảnh; box găng 2.430 → 4.922, kính 1.045 → 2.947. Val/test **không đổi** (113/111 ảnh, kiểm md5 danh sách test trước/sau).
+SH17 không có nhãn `no_*` nên không giúp nhận ra "không đeo"; nó chỉ thêm mẫu "có đeo". Giấy phép CC BY-NC-SA 4.0 (giáo dục/nghiên cứu).
+Colab: upload `_tools/colab/ppe_sh17.zip` (585 MB) lên Drive, giải nén ra `/content/` (ra `/content/ppe_merged`), rồi:
+```
+sed -i "s#^path:.*#path: /content/ppe_merged#" /content/ppe_merged/data_sh17.yaml
+!yolo detect train data=/content/ppe_merged/data_sh17.yaml model=yolov8n.pt imgsz=640 epochs=60 batch=16 patience=30 name=ppe_C2
+```
+(ước ~40 phút trên T4; C′ mất 22 phút với 3.632 ảnh). Sau đó chép `best.pt` về `models/ppe_v1_C2_best.pt` và chạy lại `yolo val ... split=test` + `src/eval_ppe_system.py`.
+Chỉ thay `ppe_v1_best.pt` nếu vest/helmet không tụt so với C′ (đã ghi ở RUNLOG 2026-10-25).

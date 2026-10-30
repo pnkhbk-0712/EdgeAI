@@ -1271,3 +1271,28 @@ centre falls there belongs to no zone -> no event. Calibrate on rig frames.
 
 **Open / not claimed:** Pi latency of the PPE model; any real-rig frames; whether the `none` -> `no_vest` mapping is right; person-detection quality
 in crowded scenes (not tested); gloves/goggles at distance (test images are mostly close/medium).
+
+## 2026-10-30 — PPE model on the Pi (Hung) + 416 vs 640 accuracy (laptop)
+
+**Pi 4B, ONNX Runtime CPU, fp32, random input, 3 runs (Hung's pasted output; his script not shared -> warm-up/run counts unrecorded).**
+`ppe_v1_best_416.onnx` median 226.0 / 212.6 / 238.7 ms (4.4 / 4.7 / 4.2 FPS, p95 214-306); `ppe_v1_best_640.onnx` 499.8 / 476.7 / 482.6 ms
+(2.0 / 2.1 / 2.1 FPS, p95 492-517). `get_throttled` 0x0 before and after every run; temp 58.9-61.3 C (416), 65.2-68.6 C (640).
+**Model-only**: no camera, tracking, NMS or compliance logic -> not the pipeline time (helmet_v1 pipeline was 773 ms @640 vs 472 ms model-only).
+Same ballpark as helmet_v1 (472.1 / 234.4 ms). Still missing: `demo_helmet.py --model ppe_*.onnx` on the Pi, real camera (`RASPI_CHECK` step 3), PSU confirmation.
+
+**416 vs 640 accuracy, laptop CPU, `models/ppe_v1_best.pt` (C'), 111-image test split, conf 0.3 for the system rows** (`yolo val` + `src/eval_ppe_system.py --imgsz`).
+Laptop GPU stayed 44-45 C (torch here is CPU-only; CPU temp unreadable, access denied); each run 6-10 s.
+
+| class | AP50 @640 | AP50 @416 |
+|---|---|---|
+| all (mAP50) | 0.564 | 0.537 |
+| person | 0.799 | 0.767 |
+| helmet | 0.913 | 0.913 |
+| vest | 0.867 | 0.872 |
+| gloves | 0.722 | 0.664 |
+| goggles | 0.772 | 0.641 |
+
+Absence rule, P / R of "missing" (640 -> 416): helmet 0.91/1.00 -> 0.85/0.98; goggles 0.79/0.97 -> 0.79/0.97; vest (explicit) 0.92/0.77 -> 0.93/0.81;
+vest (absence) 0.72/1.00 -> 0.71/0.96; gloves 0.74/0.97 -> 0.62/1.00 (false "missing" 12 -> 22).
+**Reading:** 416 costs little for helmet/vest, more for gloves/goggles. Not decided 416 vs 640. mAP50 @640 here is 0.564 vs 0.559 recorded on 2026-10-25
+(cause not investigated: batch size / default thresholds?). Same caveats: tiny test split, missing-rate above a real site.

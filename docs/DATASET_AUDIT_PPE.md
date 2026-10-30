@@ -35,3 +35,11 @@ Kết luận tạm: giữ làm nguồn **bổ sung** cho gloves/goggles/no_glove
 - 30/143 ảnh val và 30/141 ảnh test có ảnh gần giống trong train (khung hình video, dHash ≤ 8/64 bit) → loại khỏi val/test; còn 113 / 111 ảnh.
 - `none` được ánh xạ thành `no_vest` — **suy luận từ crop mẫu, tài liệu của Ultralytics không nêu, chưa kiểm chứng**.
 - Dùng làm nền train (1.132 ảnh) và là nguồn duy nhất của val/test.
+
+### Nguồn 3 — SH17 (thêm 2026-10-30)
+- **Link:** https://github.com/ahmadmughees/SH17dataset ; tải qua Kaggle `mugheesahmad/sh17-dataset-for-ppe-detection` (archive.zip 14.1 GB, tải thủ công).
+- **Giấy phép:** CC BY-NC-SA 4.0 (README: chỉ cho giáo dục/nghiên cứu/huấn luyện ML); ảnh lấy từ Pexels (giấy phép Pexels). Phải ghi nguồn; model dùng cho học tập, không thương mại.
+- **Nội dung:** 8.099 ảnh, 17 lớp. Ánh xạ id→tên kiểm bằng cách đối chiếu số box YOLO với tên trong voc_labels (300 file đầu khớp từng lớp).
+- **Dùng:** chỉ ảnh có `Glasses` hoặc `Gloves`, bỏ 117 ảnh có mũ/áo thấy rõ mà không gán nhãn (`src/scan_sh17_missing_labels.py`, duyệt tay 24 mẫu: ~1/3 ca mũ, ~4/5 ca áo là nhãn thiếu thật) → 2.538 ảnh (`src/prep_sh17.py`, cạnh dài 960 px). Ánh xạ: Person→person, Glasses→goggles, Gloves→gloves, Helmet→helmet, Safety-vest→vest; các lớp khác bỏ.
+- **Chỉ vào train** (0 ảnh bị loại vì gần giống val/test). Không có nhãn `no_*`.
+- **Còn lại:** nhãn thiếu ở ngưỡng conf<0.6 và ở lớp găng/kính chưa dò được; chỉ duyệt tay 24 ảnh.

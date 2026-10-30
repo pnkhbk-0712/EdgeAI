@@ -45,7 +45,16 @@ SOURCES = [
          map={"glasses": "goggles", "gloves": "gloves", "helmet": "helmet", "no glasses": "no_goggles",
               "no gloves": "no_gloves", "no helmet": "no_helmet", "no vest": "no_vest", "person": "person",
               "vest": "vest"}),
+    # SH17 (CC BY-NC-SA 4.0): only the gloves/glasses images, shrunk by src/prep_sh17.py. Train only, and kept out of
+    # train.txt / train_sampled.txt so configs A and C' stay exactly as they were; used by train_sh17.txt (C'').
+    dict(name="sh17", root=SRC / "sh17" / "raw", layout="ultra", splits={"all": "train"},
+         map={"person": "person", "glasses": "goggles", "gloves": "gloves", "helmet": "helmet", "safety-vest": "vest"}),
 ]
+
+
+# SH17 images where helmet/vest is visible but unlabeled (src/scan_sh17_missing_labels.py) would teach "no vest/helmet"
+_ex = SRC / "sh17" / "exclude_unlabeled.txt"
+SH17_EXCLUDE = set(_ex.read_text().split()) if _ex.exists() else set()
 
 
 def src_names(root):
@@ -81,10 +90,15 @@ for s in SOURCES:
     for src_split, dst in s["splits"].items():
         for img, lf in pairs(s["root"], s["layout"], src_split):
             lines = convert(lf, id_map)
+            if s["name"] == "sh17" and img.stem in SH17_EXCLUDE:
+                continue
             if lines:
                 items[dst].append((s["name"], img, lines))
 
-# 2. evaluation sets: drop images that have a near-twin anywhere in train
+# 2. evaluation sets: drop images that have a near-twin anywhere in train (SH17 excluded here so the eval sets stay
+# identical to the earlier runs; instead any SH17 image that is a twin of a kept eval image is dropped from train)
+sh17_items = [i for i in items["train"] if i[0] == "sh17"]
+items["train"] = [i for i in items["train"] if i[0] != "sh17"]
 train_h = np.stack([dhash(i[1]) for i in items["train"]])
 for split in ("valid", "test"):
     keep = []
@@ -93,6 +107,10 @@ for split in ("valid", "test"):
             keep.append(it)
     print(f"{split}: {len(items[split])} images, {len(items[split]) - len(keep)} dropped as near-twins of train")
     items[split] = keep
+eval_h = np.stack([dhash(i[1]) for sp in ("valid", "test") for i in items[sp]])
+sh17_keep = [i for i in sh17_items if hamming(dhash(i[1]), eval_h).min() > TWIN_BITS]
+print(f"sh17: {len(sh17_items)} images, {len(sh17_items) - len(sh17_keep)} dropped as near-twins of valid/test")
+items["train"] += sh17_keep
 
 # 3. write
 if OUT.exists():
@@ -110,7 +128,9 @@ for split, lst in items.items():
         (OUT / split / "labels" / (stem + ".txt")).write_text("\n".join(lines) + "\n")
 
 # 4. train lists: plain and repeat-factor
-train_files = sorted((OUT / "train" / "images").iterdir())
+all_train = sorted((OUT / "train" / "images").iterdir())
+sh17_files = [f for f in all_train if f.name.startswith("sh17_")]
+train_files = [f for f in all_train if not f.name.startswith("sh17_")]
 cls_of = {f: {int(l.split()[0]) for l in (OUT / "train" / "labels" / (f.stem + ".txt")).read_text().split("\n") if l} for f in train_files}
 freq = Counter(c for s in cls_of.values() for c in s)
 rep_c = {c: max(1.0, math.sqrt(REPEAT_T / (freq[c] / len(train_files)))) for c in freq}
@@ -140,7 +160,12 @@ box = Counter(int(l.split()[0]) for f in sampled for l in (OUT / "train" / "labe
 print(f"train_sampled.txt: {len(sampled)} images ({len(cppe_files)} cppe + {len(picked)} ppev5); boxes:",
       {NAMES[c]: n for c, n in sorted(box.items())})
 
-for fname, tr in (("data.yaml", "train.txt"), ("data_repeat.yaml", "train_repeat.txt"), ("data_cppe.yaml", "train_cppe.txt"), ("data_sampled.yaml", "train_sampled.txt")):
+# configuration C'': C' plus all selected SH17 gloves/glasses images (more gloves/goggles boxes)
+(OUT / "train_sh17.txt").write_text(chr(10).join(rel(f) for f in sampled + sh17_files) + chr(10))
+box2 = Counter(int(l.split()[0]) for f in sampled + sh17_files for l in (OUT / "train" / "labels" / (f.stem + ".txt")).read_text().split(chr(10)) if l)
+print(f"train_sh17.txt: {len(sampled) + len(sh17_files)} images ({len(sh17_files)} sh17); boxes:", {NAMES[c]: n for c, n in sorted(box2.items())})
+
+for fname, tr in (("data_sh17.yaml", "train_sh17.txt"), ("data.yaml", "train.txt"), ("data_repeat.yaml", "train_repeat.txt"), ("data_cppe.yaml", "train_cppe.txt"), ("data_sampled.yaml", "train_sampled.txt")):
     (OUT / fname).write_text(yaml.safe_dump(
         {"path": OUT.resolve().as_posix(), "train": tr, "val": "valid/images", "test": "test/images", "names": dict(enumerate(NAMES))},
         sort_keys=False), encoding="utf-8")
