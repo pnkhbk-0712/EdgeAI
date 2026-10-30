@@ -1,12 +1,27 @@
-# Hùng — Testing & Evaluation — việc cần làm tiếp (cập nhật 2026-10-25)
+# Hùng — Testing & Evaluation — việc cần làm tiếp (cập nhật 2026-10-30)
 
-## MỚI (2026-10-25) — Model PPE 4 món đã có, cần đo trên Pi thật
+## MỚI (2026-10-30) — Đã đo model PPE trên Pi; còn 3 việc để có số pipeline thật
 
-Model mới `ppe_v1` (mũ, áo phản quang, găng tay, kính) đã train xong (xem `docs/RUNLOG.md` 2026-10-25). Việc của bạn:
-1. Copy 2 file từ laptop `models/` sang `models/` trên Pi: `ppe_v1_best_640.onnx`, `ppe_v1_best_416.onnx`.
-2. `python3 benchmark_pi.py --ppe` → gửi lại cả bảng (2 dòng) + nhiệt độ.
-3. Chạy pipeline thật: `python3 demo_helmet.py --no-display --source <video> --model models/ppe_v1_best_416.onnx` (rồi 640) → gửi FPS/ms mỗi khung và số sự kiện.
-Chưa có số đo Pi nào cho model này; laptop CPU chỉ là 25 ms (640) / 10 ms (416), không phải số của Pi.
+**Đã xong (Hùng, 3 lần chạy, ONNX fp32, ảnh ngẫu nhiên, không throttle `0x0`, tối đa 68.6 °C):**
+
+| Model | Median | FPS |
+|---|---|---|
+| `ppe_v1_best_416.onnx` | 212.6–238.7 ms | 4.2–4.7 |
+| `ppe_v1_best_640.onnx` | 476.7–499.8 ms | 2.0–2.1 |
+
+Đây **chỉ là tốc độ model** (không camera, tracking, NMS, logic compliance). Số khớp model mũ cũ (472/234 ms).
+
+**Việc còn lại — làm theo thứ tự, gửi lại output cho Hiếu:**
+1. `git pull` branch `helmet-safety-pivot`, rồi gửi lại **file script đo** (`bench_ppe.py`) — đoạn dán bị lỗi heredoc nên bản đang chạy khác bản trong tin nhắn; cần biết số lần chạy/warmup để ghi vào RUNLOG. Hoặc chạy chính thức: `python3 benchmark_pi.py --ppe` (đã có sẵn trong repo).
+2. **Pipeline đầy đủ** (đây là số quan trọng nhất, model-only chưa đủ):
+   ```
+   python3 demo_helmet.py --no-display --source <video> --model models/ppe_v1_best_416.onnx
+   python3 demo_helmet.py --no-display --source <video> --model models/ppe_v1_best_640.onnx
+   ```
+   Ghi FPS (hoặc ms/khung), số `ppe_violation` in ra, nhiệt độ + `vcgencmd get_throttled` sau khi chạy. Nên dùng video **có người** (video `test_loop.mp4` cũ là xe, không có người nên không ra sự kiện PPE). Cần đủ 2 model, mỗi model chạy ≥ 1 phút.
+3. **Camera thật:** `RASPI_CHECK_REPORT.md` Bước 3 (`cv2.VideoCapture(0)`) vẫn trống; sau đó chạy lại bước 2 với `--source 0`. Xác nhận luôn nguồn PSU (5V/3A có đổi không).
+
+Chưa chọn 416 hay 640: tốc độ nghiêng về 416, nhưng độ chính xác găng/kính (vật nhỏ) ở 416 chưa đo — Hiếu sẽ đo AP từng lớp ở 416/640 trên laptop.
 
 ---
 

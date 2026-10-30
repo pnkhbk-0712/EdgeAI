@@ -28,3 +28,10 @@ Mỗi nguồn dữ liệu ghi: tên, link, giấy phép, số ảnh, ngày tải
 4. Ảnh gần giống valid↔train (dHash 64-bit): ≤4 bit 5,4% (120/2207), ≤8 bit 24,2% (535) — ngưỡng 8 có thể bao gồm ảnh sản phẩm nền trắng giống nhau, chưa xem tay.
 
 Kết luận tạm: giữ làm nguồn **bổ sung** cho gloves/goggles/no_gloves/no_goggle (và `no vest` là thân không áo); không dùng nó để chứng minh mũ/áo. Ánh xạ dự kiến → `glasses→goggles, no glasses→no_goggles, gloves, no gloves→no_gloves, helmet, no helmet→no_helmet, vest, no vest→(suy luận, cân nhắc), person`; bỏ boots/no boots. Cần Construction-PPE (ảnh công trường thật) làm nền và làm tập kiểm tra.
+
+## Nguồn 2 — Ultralytics Construction-PPE
+- Link: https://docs.ultralytics.com/datasets/detect/construction-ppe/ · tải: https://github.com/ultralytics/assets/releases/download/v0.0.0/construction-ppe.zip · giấy phép **AGPL-3.0** (ghi nguồn) · 178 MB · tải 2026-10-25 · `data/ppe_sources/construction_ppe/` (zip gốc cạnh `raw/`).
+- 1.416 ảnh công trường thật/dàn dựng: train 1.132 / val 143 / test 141. Lớp: helmet, gloves, vest, boots, goggles, no_helmet, no_goggle, no_gloves, no_boots, Person, none. Audit: 0 lỗi định dạng.
+- 30/143 ảnh val và 30/141 ảnh test có ảnh gần giống trong train (khung hình video, dHash ≤ 8/64 bit) → loại khỏi val/test; còn 113 / 111 ảnh.
+- `none` được ánh xạ thành `no_vest` — **suy luận từ crop mẫu, tài liệu của Ultralytics không nêu, chưa kiểm chứng**.
+- Dùng làm nền train (1.132 ảnh) và là nguồn duy nhất của val/test.
