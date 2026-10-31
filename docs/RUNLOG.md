@@ -1296,3 +1296,57 @@ Absence rule, P / R of "missing" (640 -> 416): helmet 0.91/1.00 -> 0.85/0.98; go
 vest (absence) 0.72/1.00 -> 0.71/0.96; gloves 0.74/0.97 -> 0.62/1.00 (false "missing" 12 -> 22).
 **Reading:** 416 costs little for helmet/vest, more for gloves/goggles. Not decided 416 vs 640. mAP50 @640 here is 0.564 vs 0.559 recorded on 2026-10-25
 (cause not investigated: batch size / default thresholds?). Same caveats: tiny test split, missing-rate above a real site.
+
+## 2026-10-30 — INT8 post-training quantization of the PPE model (laptop, `src/quantize_ppe.py`)
+Test split (111 images), ONNX Runtime CPU on the **laptop** (not the Pi; latency is noisy: fp32@416 read 10.6-12.4 ms across runs). Dynamic = same
+method as the helmet model; static = QDQ, 100 Construction-PPE train images as calibration, per-tensor, min-max.
+
+| size | variant | MB | laptop ms | mAP50 | gloves | goggles | helmet | vest |
+|---|---|---|---|---|---|---|---|---|
+| 640 | fp32 | 12.75 | 21.2 | 0.563 | 0.711 | 0.750 | 0.924 | 0.875 |
+| 640 | int8 dynamic | 3.47 | 33.1 | 0.560 | 0.722 | 0.755 | 0.917 | 0.867 |
+| 640 | int8 static | 3.50 | 23.4 | **0.000** | 0 | 0 | 0 | 0 |
+| 416 | fp32 | 12.66 | 10.6 | 0.535 | 0.656 | 0.653 | 0.897 | 0.885 |
+| 416 | int8 dynamic | 3.38 | 24.1 | 0.538 | 0.656 | 0.648 | 0.906 | 0.883 |
+| 416 | int8 static | 3.45 | 13.1 | **0.168** | 0 | 0 | 0.521 | 0.514 |
+
+**Reading:** dynamic INT8 is ~3.7x smaller and loses no accuracy (within 0.003 mAP50) but is **slower** on the laptop (same direction as helmet_v1 on the Pi:
+553 vs 472 ms) -> no latency reason to use it. Static INT8 with default min-max calibration **collapses** (0.168 / 0.000): not a usable result, not a verdict on
+quantization in general (would need percentile/entropy calibration or keeping the Detect head in fp32 — not tried). The `int8*` files were NOT timed on the Pi; the dynamic one
+may behave differently there (the helmet one did not help). Files in `models/` (gitignored? check) are named `ppe_v1_best_int8dyn_*.onnx` / `int8static_*`.
+
+## 2026-10-31 — Pi: `benchmark_pi.py --ppe` (Hung, official script, 3 warm-up + 15 runs, ORT 1.31.0)
+ONNX fp32 640: 491.0 ms (2.0 FPS) — fails <300 ms; fp32 416: 208.7 ms (4.8 FPS) — passes. Matches the earlier 3-run script (477-500 / 213-239 ms). Still model-only.
+Hung also ran `demo_helmet.py` on `test_loop.mp4`, but with the OLD helmet models (`helmet_v1_best_416.onnx`, `helmet_v1_best.onnx`), NOT `ppe_v1_*`: 150 frames, 108.5 s (1.4 FPS),
+0 violations (the clip has vehicles, no people). The 416 helmet file printed "None of the required PPE items is detectable" (cause not checked). So the PPE pipeline time is still unmeasured.
+Pi after run: 46.2 C, throttled=0x0.
+
+## 2026-10-31 — Pi: full PPE pipeline `demo_helmet.py --no-display` (Hung), `test_loop.mp4`, 150 frames, ORT 1.31.0
+| model | wall-clock | FPS | ms/frame (derived) | events this run |
+|---|---|---|---|---|
+| `ppe_v1_best_416.onnx` | 43.4 s | 3.5 | ~289 | 1 `ppe_violation` (helmet, normal zone, track 1, 00:02) |
+| `ppe_v1_best_640.onnx` | 84.8 s | 1.8 | ~565 | the same 1 event |
+Pi 53.0 C after the 416 run, `throttled=0x0`. Pipeline overhead over model-only: 416 289 vs 209 ms (+38%), 640 565 vs 491 ms (+15%).
+**Reading:** at 416 the pipeline is just under the 300 ms target (~11 ms margin; wall-clock includes video decode and the run-to-run spread is ~±15 ms in the model-only
+numbers) -> "meets" only barely; 640 does not. Not measured: live camera, a clip with people, RAM.
+**Caveat on the event (corrected 2026-10-31):** I first assumed `test_loop.mp4` on the Pi was the old vehicle clip from the repo -- wrong. Per Hung it is a video he
+made from a still photo supplied by Hoang (one image looped, 150 frames). So the timing is a static-scene compute number (no motion), and the single helmet-missing event
+(normal zone, track 1, 00:02, same in both models) may well be real for the people in that photo -- not yet checked against the photo itself. `confidence: null` is by
+design (absence-inferred item, no box).
+
+## 2026-10-31 — Config C'' (C' + 2,538 SH17 gloves/glasses images) trained on Colab T4 -> `models/ppe_v1_C2_best.pt` (6.25 MB .pt)
+Same 111-image test split, laptop CPU (`yolo val` + `src/eval_ppe_system.py`, conf 0.3). AP50, C' -> C'':
+
+| class | 640 C' | 640 C'' | 416 C' | 416 C'' |
+|---|---|---|---|---|
+| mAP50 (all 9) | 0.564 | 0.514 | 0.537 | 0.520 |
+| helmet | 0.913 | 0.895 | 0.913 | 0.902 |
+| vest | 0.867 | 0.883 | 0.872 | 0.899 |
+| gloves | 0.722 | 0.703 | 0.664 | 0.671 |
+| goggles | 0.772 | 0.666 | 0.641 | 0.615 |
+
+Absence-rule P/R of "missing" (C' -> C''): 640 helmet .91/1.00 -> .87/1.00; goggles .79/.97 -> .78/.85; vest(absence) .72/1.00 -> .69/1.00; gloves .74/.97 -> .70/.97.
+416 gloves .62/1.00 -> .61/.92; vest(absence) .71/.96 -> .84/1.00 (vest explicit R .81 -> .40); helmet .85/.98 -> .89/1.00.
+**Result: SH17 did NOT improve gloves/goggles** (goggles AP50 fell 0.772 -> 0.666 at 640; gloves flat) even though gloves boxes doubled. C' stays `ppe_v1_best.pt`.
+Likely contributors (not tested): SH17 has no `no_*` labels (dilutes the negative classes: no_vest .46 -> .39 etc.), different image style, unlabeled PPE in SH17 below the 0.6 scan threshold.
+Single seed, 111 test images: differences of ~0.02 are within noise; the goggles drop (0.10) is larger than that.
