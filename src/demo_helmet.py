@@ -51,7 +51,7 @@ from helmet_zone_configs import (
     HIGH_RISK_ZONE_POLYGON_FRAC, NORMAL_ZONE_POLYGON_FRAC, scale_polygon,
     HIGH_RISK_DWELL_SECONDS, NORMAL_DWELL_SECONDS, REQUIRED_ITEMS, INFER_ABSENT,
 )
-from ppe_compliance import ItemSmoother, assess_person, norm_name, supported_items
+from ppe_compliance import ItemSmoother, assess_person, norm_name, split_dets, supported_items
 
 ROOT = Path(__file__).resolve().parent.parent
 EVENTS_OUT = ROOT / "data" / "samples" / "helmet_events.jsonl"
@@ -215,10 +215,11 @@ def main():
                     cv2.rectangle(frame, (int(box[0]), int(box[1])), (int(box[2]), int(box[3])), c, 1)
 
             now = time.time()
-            for tid, pbox in people:
+            own_dets = split_dets([b for _, b in people], item_dets)
+            for (tid, pbox), my_dets in zip(people, own_dets):
                 px1, py1, px2, py2 = pbox
                 cx, cy = (px1 + px2) / 2, (py1 + py2) / 2
-                status = assess_person(pbox, item_dets, assessed, result.orig_shape[0], INFER_ABSENT)
+                status = assess_person(pbox, my_dets, assessed, result.orig_shape[0], INFER_ABSENT)
                 missing, alerting, uncertain_any = [], set(), False
                 for item, (st, conf) in status.items():
                     if st == "unknown":

@@ -46,6 +46,23 @@ def _in_region(person, det_box, band):
     return px1 - H_MARGIN * pw <= cx <= px2 + H_MARGIN * pw and band[0] <= ry <= band[1]
 
 
+def split_dets(persons, dets):
+    """Give each detection to ONE person: among those whose region for that item contains it, the one
+    whose box centre is closest horizontally (as a fraction of their width). Without this an item in
+    the overlap of two person boxes counts for both. persons: [xyxy]; returns one det list per person."""
+    band_of = {c: band for pos, neg, band in ITEMS.values() for c in (pos, neg)}
+    out = [[] for _ in persons]
+    for d in dets:
+        band = band_of.get(d[0])
+        if band is None:
+            continue
+        cx = (d[1][0] + d[1][2]) / 2
+        c = [(abs(cx - (p[0] + p[2]) / 2) / (p[2] - p[0]), i) for i, p in enumerate(persons) if _in_region(p, d[1], band)]
+        if c:
+            out[min(c)[1]].append(d)
+    return out
+
+
 def assess_person(person_box, dets, items, frame_h, infer_absent=()):
     """dets: [(normalised_name, xyxy, conf)] for all non-person detections in the frame.
     Returns {item: (status, conf)}; conf is the evidence confidence (None when inferred/unknown).

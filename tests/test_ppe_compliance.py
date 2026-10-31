@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
-from ppe_compliance import ItemSmoother, assess_person, norm_name, supported_items  # noqa: E402
+from ppe_compliance import ItemSmoother, assess_person, norm_name, split_dets, supported_items  # noqa: E402
 from zone import RestrictedZone  # noqa: E402
 
 FRAME_H = 720
@@ -22,6 +22,14 @@ def test_aliases_and_supported_items():
     assert norm_name("Safety-Vest") == "vest" and norm_name("head") == "no_helmet"
     assert supported_items({0: "head", 1: "helmet", 2: "person"}.values()) == ["helmet"]
     assert set(supported_items(["helmet", "vest", "gloves", "goggles", "person"])) == set(ALL)
+
+
+def test_item_goes_to_one_person_only():
+    a, b = (100, 100, 300, 400), (250, 100, 450, 400)  # overlapping boxes, glove at x=140 is A's
+    glove = det("gloves", 140, 300)
+    da, db = split_dets([a, b], [glove])
+    assert len(da) == 1 and db == []
+    assert assess_person(b, db, ["gloves"], FRAME_H)["gloves"][0] == "unknown"
 
 
 def test_present_and_missing_helmet():
