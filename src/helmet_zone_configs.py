@@ -42,15 +42,10 @@ HIGH_RISK_DWELL_SECONDS = 1.0
 # Normal zone: a little debounce so a momentary head-turn/occlusion doesn't false-trigger.
 NORMAL_DWELL_SECONDS = 3.0
 
-# PPE items that must be worn in each zone (2026-10-24). A GROUP ASSUMPTION, not a rule from the
-# law: QCVN 18:2021/BXD 2.19.1.1 only says PPE must fit the job and its hazards, so which items a
-# zone requires is a site decision -- change it here. Items the loaded model cannot detect are
-# skipped at run time (src/ppe_compliance.py), so the old helmet-only model still runs.
+# PPE items every person must wear (2026-10-31: risk zones dropped from the PPE demo, one list for all).
+# Items the loaded model cannot detect are skipped at run time (src/ppe_compliance.py).
 # Names: helmet | vest | gloves | goggles.
-REQUIRED_ITEMS = {
-    "high_risk": ["helmet", "vest", "gloves", "goggles"],
-    "normal": ["helmet", "vest"],
-}
+REQUIRED_ITEMS = ["helmet", "vest", "gloves", "goggles"]
 
 # Items judged "missing" when a large-enough person simply has no evidence for them (no positive box in the
 # body region). Chosen from a measured comparison on the Construction-PPE test set (ppe_A, conf 0.3, GT person

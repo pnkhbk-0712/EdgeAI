@@ -5,14 +5,14 @@ JSONL event log), applied to people and the PPE they wear.
 2026-10-24 redesign (supervisor feedback: a helmet is one small part of PPE): the unit of
 assessment is now a tracked *person*, not a head. Each person is checked for every PPE item the
 loaded model can detect (helmet, vest, gloves, goggles -- see src/ppe_compliance.py) and the
-items REQUIRED in a zone (helmet_zone_configs.REQUIRED_ITEMS) decide what counts as a violation
-there. The old 3-class helmet model (head/helmet/person) still loads: "head" is aliased to
+items in helmet_zone_configs.REQUIRED_ITEMS (all four, no risk zones since 2026-10-31) decide
+what counts as a violation. The old 3-class helmet model (head/helmet/person) still loads: "head" is aliased to
 no_helmet and only the helmet item is judged. Needs a usable `person` class -- the 3-class helmet
 model's person AP50 was ~0.04, so a PPE model trained with a real Person class is the intended one.
 
-Two risk zones: the HIGH_RISK zone (the foam-scaffolding mockup) fires after a short dwell; the
-NORMAL zone logs after a longer debounce. Dwell is tracked per (track_id, item), so a person
-missing a vest and a helmet raises two independent events.
+No risk zones: every tracked person must wear every required item. A violation is logged once per
+(track_id, item) when the smoothed call turns "missing", and again only after the person has been
+compliant for that item. A person missing a vest and a helmet raises two independent events.
 
 Monitoring (Report Step 7): periodic compliance snapshots (overall + per item) and a "no
 detections for too long" failure flag are written to EVENTS_OUT alongside violation events, so a
@@ -24,11 +24,12 @@ each (track, item)'s last CLASS_SMOOTHING_WINDOW assessed frames vote and ties l
 
 Privacy (Report Step 8): no frame is ever written to disk and no identity is attached to a track
 id -- ids come from YOLO's tracker, reset every time this script starts, and are never linked to a
-name. Only zone/item/timestamp/confidence numbers are logged. See PRIVACY_NOTE below.
+name. Only item/timestamp/confidence numbers are logged. See PRIVACY_NOTE below.
 
 Confidence-uncertain band + event retention (2026-10-13): a detection confidence inside
-CONFIDENCE_UNCERTAIN_LOW/HIGH is treated as "missing" (missing a real violation is the costlier
-failure) but the event is tagged uncertain so a reviewer can tell it from a clean flag. Events are
+CONFIDENCE_UNCERTAIN_LOW/HIGH only tags an explicit "no_*" call as uncertain so a reviewer can tell
+it from a clean flag. (2026-10-31: it used to also turn a worn item into "missing"; a video test
+showed true gloves/vest detections sit at 0.42-0.67, so most worn items were reported missing.) Events are
 loaded, purged past EVENT_RETENTION_DAYS and appended to, not overwritten; each carries "logged_at".
 
 Usage:
@@ -46,11 +47,7 @@ from pathlib import Path
 import cv2
 from ultralytics import YOLO
 
-from zone import RestrictedZone
-from helmet_zone_configs import (
-    HIGH_RISK_ZONE_POLYGON_FRAC, NORMAL_ZONE_POLYGON_FRAC, scale_polygon,
-    HIGH_RISK_DWELL_SECONDS, NORMAL_DWELL_SECONDS, REQUIRED_ITEMS, INFER_ABSENT,
-)
+from helmet_zone_configs import REQUIRED_ITEMS, INFER_ABSENT
 from ppe_compliance import ItemSmoother, assess_person, norm_name, split_dets, supported_items
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -84,7 +81,7 @@ EVENT_RETENTION_DAYS = 30
 
 PRIVACY_NOTE = (
     "Privacy note: no video frame is saved to disk; track ids reset every run and are never "
-    "linked to an identity; only zone/item/timestamp/confidence events are logged to "
+    "linked to an identity; only item/timestamp/confidence events are logged to "
 )
 
 
@@ -128,6 +125,8 @@ def main():
     parser.add_argument("--source", default="0", help="Webcam index (default 0) or video path")
     parser.add_argument("--model", default=str(DEFAULT_MODEL), help="Trained PPE/helmet model path")
     parser.add_argument("--no-display", action="store_true", help="Don't open a preview window")
+    parser.add_argument("--conf", type=float, help="Detection confidence threshold (default: Ultralytics 0.25)")
+    parser.add_argument("--imgsz", type=int, help="Input size; needed for fixed-size ONNX (416/640) on some ultralytics versions")
     args = parser.parse_args()
 
     source = int(args.source) if args.source.isdigit() else args.source
@@ -145,17 +144,8 @@ def main():
     frame_w = int(cap_probe.get(cv2.CAP_PROP_FRAME_WIDTH)) or 1280
     frame_h = int(cap_probe.get(cv2.CAP_PROP_FRAME_HEIGHT)) or 720
     cap_probe.release()
-    print(f"Camera reports {frame_w}x{frame_h} @ {fps:.1f}fps -- scaling zone polygons to this.")
 
-    zones = {
-        "high_risk": RestrictedZone(
-            scale_polygon(HIGH_RISK_ZONE_POLYGON_FRAC, frame_w, frame_h),
-            dwell_frames=max(1, round(HIGH_RISK_DWELL_SECONDS * fps))),
-        "normal": RestrictedZone(
-            scale_polygon(NORMAL_ZONE_POLYGON_FRAC, frame_w, frame_h),
-            dwell_frames=max(1, round(NORMAL_DWELL_SECONDS * fps))),
-    }
-    zone_colors = {"high_risk": (0, 0, 255), "normal": (0, 215, 255)}  # red / amber outlines
+    print(f"Camera reports {frame_w}x{frame_h} @ {fps:.1f}fps.")
 
     # task="detect" avoids an ONNX-only warning (ONNX export drops the task metadata .pt keeps)
     model = YOLO(str(model_path), task="detect")
@@ -164,9 +154,8 @@ def main():
         raise SystemExit(f"Model classes {sorted(names.values())} have no 'person' class -- a "
                          "person-centric PPE check needs one.")
     can_see = supported_items(names.values())
-    required = {z: [i for i in REQUIRED_ITEMS[z] if i in can_see] for z in zones}
-    assessed = sorted({i for items in required.values() for i in items})
-    print(f"Model detects PPE items {can_see}; required per zone: {required}")
+    assessed = [i for i in REQUIRED_ITEMS if i in can_see]
+    print(f"Model detects PPE items {can_see}; required: {assessed}")
     if not assessed:
         raise SystemExit("None of the required PPE items is detectable by this model.")
 
@@ -179,6 +168,7 @@ def main():
     # rolling (timestamp, item, is_missing) samples for the live compliance-rate readout
     compliance_window = deque()
     smoother = ItemSmoother(CLASS_SMOOTHING_WINDOW)
+    reported = set()  # (track_id, item) already logged and still missing
     last_detection_time = time.time()
     last_snapshot_time = time.time()
     failure_flagged = False  # avoid re-flagging every frame while still silent
@@ -186,13 +176,11 @@ def main():
     def compliance_pct(samples):
         return round(100.0 * (1 - sum(1 for s in samples if s[2]) / len(samples)), 1) if samples else None
 
-    results_gen = model.track(source=source, persist=True, stream=True, verbose=False)
+    opts = {k: v for k, v in [("conf", args.conf), ("imgsz", args.imgsz)] if v is not None}
+    results_gen = model.track(source=source, persist=True, stream=True, verbose=False, **opts)
 
     for result in results_gen:
         frame = result.orig_img.copy()
-        for zname, zone in zones.items():
-            zone.draw(frame, color=zone_colors[zname])
-
         boxes = result.boxes
         if boxes is not None and len(boxes) > 0:
             last_detection_time = time.time()
@@ -218,55 +206,43 @@ def main():
             own_dets = split_dets([b for _, b in people], item_dets)
             for (tid, pbox), my_dets in zip(people, own_dets):
                 px1, py1, px2, py2 = pbox
-                cx, cy = (px1 + px2) / 2, (py1 + py2) / 2
                 status = assess_person(pbox, my_dets, assessed, result.orig_shape[0], INFER_ABSENT)
-                missing, alerting, uncertain_any = [], set(), False
+                missing, uncertain_any = [], False
                 for item, (st, conf) in status.items():
                     if st == "unknown":
                         continue
                     uncertain = conf is not None and CONFIDENCE_UNCERTAIN_LOW <= conf <= CONFIDENCE_UNCERTAIN_HIGH
-                    raw_missing = st == "missing" or uncertain
+                    raw_missing = st == "missing"  # uncertain only tags an explicit no_* call, never turns a worn item into missing
                     is_missing = smoother.update((tid, item), raw_missing)
                     compliance_window.append((now, item, is_missing))
                     key = (tid, item)
                     if not is_missing:
-                        for zone in zones.values():
-                            zone.track_dwell.pop(key, None)  # compliant again -> dwell restarts
+                        reported.discard(key)  # compliant again -> a later lapse is a new event
                         continue
                     missing.append(item)
                     uncertain_any |= uncertain
-                    for zname, zone in zones.items():
-                        if item not in required[zname]:
-                            continue
-                        _, violation, newly = zone.update(key, cx, cy)
-                        if violation and zname == "high_risk":
-                            alerting.add("HIGH-RISK")
-                        elif violation:
-                            alerting.add("logged")
-                        if newly:
-                            event = {
-                                "event": "ppe_violation",
-                                "missing_item": item,
-                                "zone": zname,
-                                "track_id": tid,
-                                "confidence": round(conf, 2) if conf is not None else None,
-                                "confidence_band": "uncertain" if uncertain else "normal",
-                                "timestamp": frame_timestamp(frame_idx, fps),
-                                "logged_at": datetime.now().isoformat(timespec="seconds"),
-                                "reviewed": False,
-                            }
-                            events.append(event)
-                            print("VIOLATION:", json.dumps(event))
+                    if key not in reported:
+                        reported.add(key)
+                        event = {
+                            "event": "ppe_violation",
+                            "missing_item": item,
+                            "track_id": tid,
+                            "confidence": round(conf, 2) if conf is not None else None,
+                            "confidence_band": "uncertain" if uncertain else "normal",
+                            "timestamp": frame_timestamp(frame_idx, fps),
+                            "logged_at": datetime.now().isoformat(timespec="seconds"),
+                            "reviewed": False,
+                        }
+                        events.append(event)
+                        print("VIOLATION:", json.dumps(event))
 
                 if not missing:
                     color, label = (0, 200, 0), f"person #{tid} OK"
                 else:
-                    color = (0, 0, 255) if "HIGH-RISK" in alerting else (0, 165, 255)
+                    color = (0, 0, 255)
                     label = f"#{tid} NO {','.join(missing).upper()}"
                     if uncertain_any:
                         label += " [UNCERTAIN - review]"
-                    if alerting:
-                        label += " [" + "/".join(sorted(alerting)) + "]"
                 cv2.rectangle(frame, (int(px1), int(py1)), (int(px2), int(py2)), color, 2)
                 cv2.putText(frame, label, (int(px1), max(0, int(py1) - 8)),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)

@@ -14,7 +14,7 @@ from collections import deque
 # of the person box height, measured from its top; helmets sit slightly above a tight person box).
 ITEMS = {
     "helmet": ("helmet", "no_helmet", (-0.25, 0.35)),
-    "goggles": ("goggles", "no_goggles", (-0.25, 0.35)),
+    "goggles": ("goggles", "no_goggles", (-0.25, 0.60)),  # 0.60: in a head-and-shoulders close-up the eyes sit ~0.43 down the person box
     "vest": ("vest", "no_vest", (0.10, 0.80)),
     "gloves": ("gloves", "no_gloves", (0.20, 1.10)),
 }

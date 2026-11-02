@@ -39,7 +39,7 @@ def main():
         if not pending:
             print("No unreviewed violation events.")
         for e in pending:
-            print(f"track_id={e['track_id']} item={e.get('missing_item', 'helmet')} zone={e['zone']} timestamp={e['timestamp']} "
+            print(f"track_id={e['track_id']} item={e.get('missing_item', 'helmet')} zone={e.get('zone', '-')} timestamp={e['timestamp']} "
                   f"confidence={e['confidence']} band={e['confidence_band']}")
         return
 
