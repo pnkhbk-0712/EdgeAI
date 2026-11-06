@@ -1,4 +1,14 @@
-# Hùng — Testing & Evaluation — việc cần làm tiếp (cập nhật 2026-10-30)
+# Hùng — Testing & Evaluation — việc cần làm tiếp (cập nhật 2026-11-03)
+
+## MỚI (2026-11-03) — Số Pi đã ghi vào RUNLOG; còn camera thật và clip có người
+
+**Đã nhận và ghi (RUNLOG 2026-10-31):** `benchmark_pi.py --ppe` 640 = 491.0 ms (2.0 FPS), 416 = 208.7 ms (4.8 FPS); pipeline `demo_helmet.py` với `ppe_v1`: 416 ≈ 289 ms (3.5 FPS), 640 ≈ 565 ms (1.8 FPS), Pi 53 °C, `throttled=0x0`. Cảm ơn — mục 1 và 2 của danh sách 10-30 coi như xong.
+
+**Còn lại:**
+1. **Camera thật:** `RASPI_CHECK_REPORT.md` Bước 3 (`cv2.VideoCapture(0)`) vẫn trống → chạy lại pipeline với `--source 0`. Xác nhận PSU (5V/3A có đổi không) và ghi RAM.
+2. **Clip có người và có chuyển động** (clip hiện tại là 1 ảnh tĩnh lặp lại, nên số tốc độ là cảnh tĩnh).
+3. **Nếu Hiếu train thêm YOLO11n / YOLOv8s** (Step 3 phải so sánh ứng viên): đo lại bằng `benchmark_pi.py` ở 416 và 640 cho model mới (Hiếu sẽ gửi ONNX). Chờ Hiếu quyết định.
+4. *(Thấp)* lần chạy 31/10 với model mũ cũ `helmet_v1_best_416.onnx` in "None of the required PPE items is detectable" — chưa kiểm nguyên nhân; không ảnh hưởng `ppe_v1`.
 
 ## MỚI (2026-10-30) — Đã đo model PPE trên Pi; còn 3 việc để có số pipeline thật
 

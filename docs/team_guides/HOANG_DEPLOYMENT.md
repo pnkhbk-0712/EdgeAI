@@ -1,4 +1,11 @@
-# Hoàng — Deployment — việc cần làm tiếp (cập nhật 2026-10-28)
+# Hoàng — Deployment — việc cần làm tiếp (cập nhật 2026-11-03)
+
+## MỚI (2026-11-03) — Cần khung hình rig thật & chạy demo bằng camera
+
+- `test_loop.mp4` trên Pi là video Hùng làm từ **1 ảnh tĩnh bạn gửi** (lặp 150 khung). Sự kiện duy nhất (thiếu mũ, vùng normal, track 1, giây 00:02) có thể **đúng** với người trong ảnh — hãy đối chiếu với ảnh gốc rồi báo lại.
+- Sửa mới ở `ppe_compliance.py`: dải kính rộng hơn (60% chiều cao khung người) để người đứng gần camera không bị báo sai "NO GOGGLES". **Chưa thử trên webcam thật** — khi chạy `demo_helmet.py`, thử cả cảnh cận mặt và cảnh đứng lùi 1,5–2 m (cách tốt nhất vẫn là thấy cả người).
+- Số Pi để chốt format: pipeline 416 ≈ 289 ms, 640 ≈ 565 ms → **dùng 416 cho Pi** (sát ngưỡng 300 ms), 640 cho laptop. Găng/kính ở 416 kém hơn (găng 0.664, kính 0.641), nên đặt người đủ lớn trong khung.
+- Vẫn còn: dựng/xác nhận rig, chốt webcam, canh polygon (khe hở y 0.472–0.556), chụp 50–150 khung theo `docs/RIG_BUILD_GUIDE.md`.
 
 ## MỚI (2026-10-25) — Hệ thống đổi sang PPE 4 món, rig cần thêm đồ
 

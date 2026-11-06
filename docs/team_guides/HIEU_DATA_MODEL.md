@@ -1,4 +1,14 @@
-# Hiếu — Data & Model — việc cần làm tiếp (cập nhật 2026-10-28)
+# Hiếu — Data & Model — việc cần làm tiếp (cập nhật 2026-11-03)
+
+## MỚI (2026-11-03) — Thầy bắt làm lại Step 3 & 4; chờ quyết định đo YOLO11n
+
+Commit `84be42d` đã **push** lên `helmet-safety-pivot` (báo cáo Tuần 11/12 v3–v9, tài liệu giải thích, sửa kính).
+- **Step 3 phải là "chọn model trước, train sau"**: đặt tiêu chí → so sánh ứng viên → nói vì sao chọn. **Step 4** phải so sánh các cách tối ưu kèm lý do chọn/không. Khung mới: `docs/CHON_MODEL_STEP3_STEP4.md` (6 ứng viên: YOLOv8n/s, YOLO11n/s, EfficientDet-Lite0, SSD-MobileNetV2; số COCO là của nhà sản xuất, chưa phải nhóm đo).
+- **Rủi ro lớn nhất:** YOLO11n trên giấy nhẹ và chính xác hơn YOLOv8n (2,6 M vs 3,2 M tham số; mAP COCO 39,5 vs 37,3) mà nhóm chưa thử → thầy dễ hỏi "sao không YOLO11n". YOLOv8s ước lượng 335–680 ms trên Pi (chưa đo).
+- **Cần quyết định:** (a) đo YOLO11n, (b) đo cả YOLO11n + YOLOv8s, (c) không đo, dùng bảng ước lượng ghi rõ "ước lượng". Nếu đo: tải `yolo11n.pt`/`yolov8s.pt` (cần đồng ý), train cấu hình C′ 60 epoch `plots=True` (~22 phút/model với v8n), rồi nhờ Hùng đo Pi.
+- **Số đã có cho Step 4:** 416 vs 640 (găng 0.722→0.664, kính 0.772→0.641); INT8 dynamic nhỏ 3.7× nhưng chậm hơn (21→33 ms), INT8 static sập (mAP 0.000 @640, 0.168 @416); SH17 (config C'') **không cải thiện** găng/kính (kính 0.772→0.666) nên vẫn dùng C′.
+- **Sửa code:** `ppe_compliance.py` nới dải kính lên 60% chiều cao khung người (cận mặt bị báo sai "NO GOGGLES"). **Chưa chạy lại trên webcam.**
+- **Chưa làm:** sửa báo cáo v9 + `PRESENTATION_TUAN12.md` theo khung Step 3/4 mới (chờ quyết định ở trên).
 
 ## MỚI (2026-10-25) — Pivot sang hệ thống PPE 4 món; model `ppe_v1` đã train (commit `9d5f681`, chưa push)
 

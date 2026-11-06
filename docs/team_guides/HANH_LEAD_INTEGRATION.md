@@ -1,4 +1,11 @@
-# Hạnh — Lead & Integration — việc cần làm tiếp (cập nhật 2026-10-28)
+# Hạnh — Lead & Integration — việc cần làm tiếp (cập nhật 2026-11-03)
+
+## MỚI (2026-11-03) — Số Pi pipeline đã có; Step 3/4 của báo cáo phải viết lại
+
+- Nhánh `helmet-safety-pivot` đã **push** (`84be42d`); **chưa mở PR vào `main`** (không thấy ghi nhận) — vẫn cần bạn đồng ý.
+- **Pi pipeline đầy đủ `ppe_v1` (Hùng, 31/10, `test_loop.mp4` 150 khung):** 416 ≈ **289 ms/khung (3.5 FPS)**, 640 ≈ **565 ms (1.8 FPS)**. 416 chỉ dưới mốc 300 ms khoảng 11 ms → ghi "đạt sát ngưỡng", không ghi "đạt thoải mái". Chưa có camera thật và clip có chuyển động. Model-only: 208.7 ms (416), 491 ms (640).
+- **Thầy chê Step 3 & 4** (nhảy thẳng vào YOLOv8n, không so sánh): khung viết lại ở `docs/CHON_MODEL_STEP3_STEP4.md`. Báo cáo Word (`Project_Report_EdgeAI_Group9.docx`, bản tuần 12 v9) **chưa sửa** theo khung này; Hiếu đang chờ quyết định có đo YOLO11n/YOLOv8s không.
+- Việc của bạn: (1) khi Hiếu chốt, cập nhật Step 3/4/6 trong báo cáo tổng bằng số Pi ở trên; (2) vẫn còn các quyết định cũ: `REQUIRED_ITEMS` (giả định nhóm), PR vào main, ghi nguồn AGPL-3.0 / CC BY 4.0.
 
 ## MỚI (2026-10-25) — Dự án pivot sang PPE 4 món (mũ, áo phản quang, găng tay, kính)
 
